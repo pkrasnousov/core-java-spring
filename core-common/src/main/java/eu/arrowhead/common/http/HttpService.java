@@ -33,6 +33,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -170,6 +171,67 @@ public class HttpService {
 	//-------------------------------------------------------------------------------------------------
 	public <T> ResponseEntity<T> sendRequest(final UriComponents uri, final HttpMethod method, final Class<T> responseType) {
 		return sendRequest(uri, method, responseType, null, null);
+	}
+	
+	//-------------------------------------------------------------------------------------------------
+	public <T,P> ResponseEntity<T> sendRequest(final UriComponents uri, final HttpMethod method, final ParameterizedTypeReference<T> responseTypeReference, final P payload, final SSLContext givenContext) {
+		Assert.notNull(method, "Request method is not defined.");
+		logger.debug("Sending {} request to: {}", method, uri);
+		
+		if (uri == null) {
+			logger.error("sendRequest() is called with null URI.");
+			throw new NullPointerException("HttpService.sendRequest method received null URI. This most likely means the invoking Core System could not " +
+			              				   "fetch the service of another Core System from the Service Registry!");
+		}
+		
+		if (NOT_SUPPORTED_METHODS.contains(method)) {
+			throw new MethodNotFoundException("Invalid method type was given to the HttpService.sendRequest() method.");
+		}
+		
+		final boolean secure = CommonConstants.HTTPS.equalsIgnoreCase(uri.getScheme());
+		if (secure && sslTemplate == null) {
+			logger.debug("sendRequest(): secure request sending was invoked in insecure mode.");
+			throw new AuthException("SSL Context is not set, but secure request sending was invoked. An insecure module can not send requests to secure modules.", HttpStatus.SC_UNAUTHORIZED);
+		}
+		
+		RestTemplate usedTemplate;
+		if (secure) { // to make SonarQube happy
+			usedTemplate = givenContext != null ? createTemplate(givenContext) : sslTemplate;
+		} else {
+			usedTemplate = template;
+		}
+
+		final HttpEntity<P> entity = getHttpEntity(payload);
+		try {
+			return usedTemplate.exchange(uri.toUri(), method, entity, responseTypeReference);
+		} catch (final ResourceAccessException ex) {
+			if (ex.getMessage().contains(ERROR_MESSAGE_PART_PKIX_PATH)) {
+				logger.error("The system at {} is not part of the same certificate chain of trust!", uri.toUriString());
+		        throw new AuthException("The system at " + uri.toUriString() + " is not part of the same certificate chain of trust!", HttpStatus.SC_UNAUTHORIZED, ex);
+			} else if (ex.getMessage().contains(ERROR_MESSAGE_PART_SUBJECT_ALTERNATIVE_NAMES)) {
+				logger.error("The certificate of the system at {} does not contain the specified IP address or DNS name as a Subject Alternative Name.", uri.toString());
+				throw new AuthException("The certificate of the system at " + uri.toString() + " does not contain the specified IP address or DNS name as a Subject Alternative Name."); 
+			} else {
+		        logger.error("UnavailableServerException occurred at {}", uri.toUriString());
+		        logger.debug("Exception", ex);
+		        throw new UnavailableServerException("Could not get any response from: " + uri.toUriString(), HttpStatus.SC_SERVICE_UNAVAILABLE, ex);
+			}
+		}
+	}
+	
+	//-------------------------------------------------------------------------------------------------
+	public <T,P> ResponseEntity<T> sendRequest(final UriComponents uri, final HttpMethod method, final ParameterizedTypeReference<T> responseTypeReference, final P payload) {
+		return sendRequest(uri, method, responseTypeReference, payload, null);
+	}
+	
+	//-------------------------------------------------------------------------------------------------
+	public <T> ResponseEntity<T> sendRequest(final UriComponents uri, final HttpMethod method, final ParameterizedTypeReference<T> responseTypeReference, final SSLContext givenContext) {
+		return sendRequest(uri, method, responseTypeReference, null, givenContext);
+	}
+	
+	//-------------------------------------------------------------------------------------------------
+	public <T> ResponseEntity<T> sendRequest(final UriComponents uri, final HttpMethod method, final ParameterizedTypeReference<T> responseTypeReference) {
+		return sendRequest(uri, method, responseTypeReference, null, null);
 	}
 	
 	//=================================================================================================
