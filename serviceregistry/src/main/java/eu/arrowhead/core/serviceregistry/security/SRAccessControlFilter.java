@@ -25,6 +25,7 @@ public class SRAccessControlFilter extends CoreSystemAccessControlFilter {
 	
 	private static final String SR_TRANSLATOR = "sr_translator";
 	private static final String ORCH_TRANSLATOR = "orch_translator";
+	private static final String DATAMANAGER_PROXY = "datamanager_proxy";
 	private static final CoreSystem[] allowedCoreSystemsForQuery = { CoreSystem.ORCHESTRATOR, CoreSystem.GATEKEEPER, CoreSystem.CERTIFICATE_AUTHORITY, CoreSystem.EVENT_HANDLER,
 																	 CoreSystem.AUTHORIZATION };
 	private static final CoreSystem[] allowedCoreSystemsForQueryBySystemId = { CoreSystem.ORCHESTRATOR };
@@ -41,7 +42,7 @@ public class SRAccessControlFilter extends CoreSystemAccessControlFilter {
 		final String cloudCN = getServerCloudCN();
 		
 		//TODO: remove this after legacy version is not supported anymore
-		if (isLegacySRTranslator(clientCN, cloudCN) || isLegacyOrchTranslator(clientCN, cloudCN)) {
+		if (isLegacySRTranslator(clientCN, cloudCN) || isLegacyOrchTranslator(clientCN, cloudCN) || isDatamanagerProxy(clientCN, cloudCN)) {
 			return;
 		}
 		
@@ -188,5 +189,13 @@ public class SRAccessControlFilter extends CoreSystemAccessControlFilter {
 		final String legacyCN = ORCH_TRANSLATOR + "." + cloudCN;
 		
 		return clientCN.equalsIgnoreCase(legacyCN);
+	}
+	
+	//-------------------------------------------------------------------------------------------------
+	//TODO: delete this after legacy version is not supported anymore
+	protected boolean isDatamanagerProxy(final String clientCN, final String cloudCN) {
+		final String proxyCN = DATAMANAGER_PROXY + "." + cloudCN;
+		
+		return clientCN.equalsIgnoreCase(proxyCN);
 	}
 }
