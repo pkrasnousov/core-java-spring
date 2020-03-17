@@ -60,3 +60,4 @@ authorization.log
 /deb-installer/.project
 /deb-installer/.settings
 /datamanager/target
+/docker-all/target
