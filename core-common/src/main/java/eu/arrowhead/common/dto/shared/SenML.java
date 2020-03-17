@@ -149,7 +149,7 @@ public class SenML implements Serializable {
     this.t = t;
   }
 
-  public Double getT() {
+public Double getT() {
     return t;
   }
 
@@ -160,6 +160,14 @@ public class SenML implements Serializable {
   public Double getUt() {
     return ut;
   }
+  
+  @Override
+public String toString() {
+	return "SenML [bn=" + bn + ", bt=" + bt + ", bu=" + bu + ", bv=" + bv
+			+ ", bs=" + bs + ", bver=" + bver + ", n=" + n + ", u=" + u + ", v="
+			+ v + ", vs=" + vs + ", vb=" + vb + ", vd=" + vd + ", s=" + s
+			+ ", t=" + t + ", ut=" + ut + "]";
+}
   
 
   //-------------------------------------------------------------------------------------------------

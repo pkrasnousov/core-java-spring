@@ -286,7 +286,11 @@ public class HistorianService {
 	    stmt.setString(3, m.getN());
 	    stmt.setDouble(4, t);
 	    stmt.setString(5, m.getU());
-	    stmt.setDouble(6, m.getV());
+	    if (m.getV() == null) {
+	    	stmt.setNull(6, java.sql.Types.DOUBLE);
+	    } else {
+	    	stmt.setDouble(6, m.getV());
+	    }
 	    stmt.setString(7, m.getVs());
 	    if (m.getVb() != null)
 	    	stmt.setBoolean(8, m.getVb());
@@ -357,10 +361,15 @@ public class HistorianService {
       String bu = null;
       while(rs.next() == true && count > 0) {
 	SenML msg = new SenML();
-	msg.setT((double)rs.getLong("t"));
+//	msg.setT((double)rs.getLong("t"));
+	msg.setT(rs.getDouble("t")); // why this field is double in the db???
 	msg.setN(rs.getString("n"));
 	msg.setU(rs.getString("u"));
-	msg.setV(rs.getDouble("v"));
+	final double v = rs.getDouble("v");
+	if (!rs.wasNull()) {
+		msg.setV(v);
+	}
+	msg.setVs(rs.getString("sv")); // this was missing, and why vs in the JSON is sv in the DB?
 	Boolean foo = rs.getBoolean("vb");
 	if (!rs.wasNull())
 	    msg.setVb(rs.getBoolean("vb"));
