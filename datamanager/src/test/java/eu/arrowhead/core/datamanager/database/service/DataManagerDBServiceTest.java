@@ -4,6 +4,8 @@ import eu.arrowhead.common.Utilities;
 import eu.arrowhead.common.database.entity.ServiceDefinition;
 import eu.arrowhead.common.database.repository.*;
 import eu.arrowhead.common.exception.InvalidParameterException;
+
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
@@ -29,4 +31,10 @@ public class DataManagerDBServiceTest {
 
     @InjectMocks
     private DataManagerDBService datamanagerDBService;
+    
+    @Test
+    public void testNothing() {
+    	// this is just for make maven happy
+    	Assert.assertTrue(true);
+    }
 }
