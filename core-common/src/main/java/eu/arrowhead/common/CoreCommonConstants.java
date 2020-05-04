@@ -71,6 +71,14 @@ public class CoreCommonConstants {
 	public static final String AUTH_TOKEN_TTL_IN_MINUTES = "auth_token_ttl_in_minutes";
 	public static final String $AUTH_TOKEN_TTL_IN_MINUTES_WD = "${" + AUTH_TOKEN_TTL_IN_MINUTES + ":" + CoreDefaults.DEFAULT_AUTH_TOKEN_TTL_IN_MINUTES + "}";
 
+        
+	public static final String COAP_SERVER_ADDRESS_ENABLED = "coap.server.enabled";
+	public static final String $COAP_SERVER_ADDRESS_ENABLED = "${" + COAP_SERVER_ADDRESS_ENABLED + ":false}";
+	public static final String COAP_SERVER_ADDRESS = "coap.server.address";
+	public static final String $COAP_SERVER_ADDRESS = "${" + COAP_SERVER_ADDRESS + ":0.0.0.0}";
+	public static final String COAP_SERVER_PORT = "coap.server.port";
+	public static final String $COAP_SERVER_PORT = "${" + COAP_SERVER_PORT + ":0}";
+        
 	public static final String REQUEST_PARAM_PAGE = "page";
 	public static final String REQUEST_PARAM_ITEM_PER_PAGE = "item_per_page";
 	public static final String REQUEST_PARAM_DIRECTION = "direction";
