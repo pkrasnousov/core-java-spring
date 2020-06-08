@@ -13,15 +13,11 @@ import eu.arrowhead.common.ApplicationInitListener;
 import eu.arrowhead.common.CommonConstants;
 import eu.arrowhead.common.CoreCommonConstants;
 import eu.arrowhead.common.CoreDefaults;
-import eu.arrowhead.common.coap.configuration.CoapCertificates;
-import eu.arrowhead.common.coap.configuration.CoapCredentials;
-import eu.arrowhead.common.coap.configuration.CoapServerConfiguration;
 import eu.arrowhead.common.database.entity.System;
 import eu.arrowhead.common.database.service.CommonDBService;
 import eu.arrowhead.common.exception.ArrowheadException;
 import eu.arrowhead.common.exception.DataNotFoundException;
 import eu.arrowhead.core.serviceregistry.database.service.ServiceRegistryDBService;
-import eu.arrowhead.core.serviceregistry.protocols.coap.CoapServiceRegistry;
 import org.springframework.beans.factory.annotation.Value;
 
 @Component
@@ -34,37 +30,6 @@ public class ServiceRegistryApplicationInitListener extends ApplicationInitListe
 
     @Autowired
     private ServiceRegistryDBService serviceRegistryDBService;
-
-    @Value(CoreCommonConstants.$COAP_SERVER_ADDRESS_ENABLED)
-    private boolean coapServerEnabled;
-
-    @Value(CoreCommonConstants.$COAP_SERVER_ADDRESS)
-    private String coapServerAddress;
-
-    @Value(CoreCommonConstants.$COAP_SERVER_PORT)
-    private int coapServerPort;
-
-    @Value(CommonConstants.$SERVER_SSL_ENABLED_WD)
-    private boolean serverSslEnabled;
-
-    @Value(CommonConstants.$KEYSTORE_TYPE)
-    private String keyStoreType;
-
-    @Value(CommonConstants.$KEYSTORE_PATH)
-    private String keyStorePath;
-
-    @Value(CommonConstants.$KEYSTORE_PASSWORD)
-    private String keyStorePassword;
-
-    @Value(CommonConstants.$KEY_PASSWORD)
-    private String keyPassword;
-
-    @Value(CommonConstants.$TRUSTSTORE_PATH)
-    private String trustStorePath;
-
-    @Value(CommonConstants.$TRUSTSTORE_PASSWORD)
-    private String trustStorePassword;
-
 
     //=================================================================================================
     // assistant methods
@@ -87,30 +52,7 @@ public class ServiceRegistryApplicationInitListener extends ApplicationInitListe
 
             final String authInfo = sslProperties.isSslEnabled() ? Base64.getEncoder().encodeToString(publicKey.getEncoded()) : null;
             serviceRegistryDBService.createSystem(name, coreSystemRegistrationProperties.getCoreSystemDomainName(), coreSystemRegistrationProperties.getCoreSystemDomainPort(), authInfo);
-            // CoAP support
-            if (coapServerEnabled) {
-                logger.info("Coap Protocol Enabled");
-                CoapServerConfiguration coapServerConfiguration = new CoapServerConfiguration(
-                        coapServerAddress,
-                        coapServerPort,
-                        serverSslEnabled,
-                        new CoapCredentials(
-                                keyStorePath,
-                                keyStorePassword,
-                                keyPassword,
-                                name+"-coap"
-                        ),
-                        new CoapCertificates(
-                                "coap-root",
-                                trustStorePassword,
-                                trustStorePath
-                        )
-                );
-                CoapServiceRegistry coapServiceRegistry = new CoapServiceRegistry(coapServerConfiguration, serviceRegistryDBService);
-            } else {
-                logger.info("Coap Protocol Disabled");
-            }
-
+            
         } catch (final ArrowheadException ex) {
             logger.error("Can't registrate {} as a system.", coreSystemRegistrationProperties.getCoreSystem().name());
             logger.debug("Stacktrace", ex);
