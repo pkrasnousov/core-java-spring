@@ -72,12 +72,19 @@ public class CoreCommonConstants {
 	public static final String $AUTH_TOKEN_TTL_IN_MINUTES_WD = "${" + AUTH_TOKEN_TTL_IN_MINUTES + ":" + CoreDefaults.DEFAULT_AUTH_TOKEN_TTL_IN_MINUTES + "}";
 
         
-	public static final String COAP_SERVER_ADDRESS_ENABLED = "coap.server.enabled";
-	public static final String $COAP_SERVER_ADDRESS_ENABLED = "${" + COAP_SERVER_ADDRESS_ENABLED + ":false}";
+	public static final String COAP_SERVER_ENABLED = "coap.server.enabled";
+	public static final String $COAP_SERVER_ENABLED = "${" + COAP_SERVER_ENABLED + ":false}";
 	public static final String COAP_SERVER_ADDRESS = "coap.server.address";
 	public static final String $COAP_SERVER_ADDRESS = "${" + COAP_SERVER_ADDRESS + ":0.0.0.0}";
 	public static final String COAP_SERVER_PORT = "coap.server.port";
 	public static final String $COAP_SERVER_PORT = "${" + COAP_SERVER_PORT + ":0}";
+        
+	public static final String MQTT_BROKER_ENABLED = "mqtt.broker.enabled";
+	public static final String $MQTT_BROKER_ENABLED = "${" + MQTT_BROKER_ENABLED + ":false}";
+	public static final String MQTT_BROKER_ADDRESS = "mqtt.broker.address";
+	public static final String $MQTT_BROKER_ADDRESS = "${" + MQTT_BROKER_ADDRESS + ":0.0.0.0}";
+	public static final String MQTT_BROKER_PORT = "mqtt.broker.port";
+	public static final String $MQTT_BROKER_PORT = "${" + MQTT_BROKER_PORT + ":0}";
         
 	public static final String REQUEST_PARAM_PAGE = "page";
 	public static final String REQUEST_PARAM_ITEM_PER_PAGE = "item_per_page";
