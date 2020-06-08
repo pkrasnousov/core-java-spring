@@ -30,7 +30,7 @@ public class Main {
         LOG.info(format("Service Registry", "getManagementSystems", "10,10", response));*/
         
         
-        response = ahCoapClient.getServiceRegistry().coapGET("echo");
+        /*response = ahCoapClient.getServiceRegistry().coapGET("echo");
         LOG.info(format("Service Registry", "echo GET", "", response));
         
         response = ahCoapClient.getServiceRegistry().coapGET("mgmt");
@@ -110,9 +110,15 @@ public class Main {
         System.out.println(tmp);
         String[] paths = tmp.split("/");
         String value = (paths.length < 2)? "": paths[1];
-        System.out.println("value: "+value);
+        System.out.println("value: "+value);*/
         
         
+        //LOG.info(ahCoapClient.getOrchestrator().getResources());
+        
+        LOG.info(ahCoapClient.getAuthorization().getResources());
+        
+        response = ahCoapClient.getAuthorization().coapGET("publickey");
+        LOG.info(format("Authorization", "publickey", "", response));
         
     }
     

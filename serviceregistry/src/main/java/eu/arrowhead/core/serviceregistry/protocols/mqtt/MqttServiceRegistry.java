@@ -68,27 +68,32 @@ public class MqttServiceRegistry {
 
     @Value(CommonConstants.$TRUSTSTORE_PASSWORD)
     private String trustStorePassword;
+    
+    final String DIRECTION_KEY = "direction";
+    final String DIRECTION_DEFAULT = CoreDefaults.DEFAULT_REQUEST_PARAM_DIRECTION_VALUE;
+    final String NULL_DEFAULT = null;
+    final String PAGE_KEY = "page";
+    final int PAGE_DEFAULT = -1;
+    final String ID_KEY = "id";
+    final int ID_DEFAULT = 0;
+    final String SIZE_KEY = "size";
+    final int SIZE_DEFAULT = -1;
+    final String SORT_KEY = "sortField";
+    final String SORT_DEFAULT = CoreCommonConstants.COMMON_FIELD_NAME_ID;
+    final String UNREGISTER_SERVICE_DEFINITION_KEY = "service_definition";
+    final String UNREGISTER_SERVICE_PROVIDER_ADDRESS_KEY = "address";
+    final String UNREGISTER_SERVICE_PROVIDER_PORT_KEY = "port";
+    final String UNREGISTER_SERVICE_PROVIDER_SYSTEM_NAME_KEY = "system_name";
 
     //=================================================================================================
     // methods
     //-------------------------------------------------------------------------------------------------
     @PostConstruct
     public void init() {
-        logger.info("\n\nMQTT protocol\n\n");
-        logger.info(serviceRegistryDBService);
-        logger.info("working!\n\n");
-        logger.info(mqttBrokerEnabled);
-        logger.info(mqttBrokerAddress);
-        logger.info(mqttBrokerPort);
-        logger.info(serverSslEnabled);
-        logger.info(keyStoreType);
-        logger.info(keyStorePath);
-        logger.info(keyStorePassword);
-        logger.info(keyPassword);
-        logger.info(trustStorePath);
-        logger.info(trustStorePassword);
-        // Start MQTT here
-        logger.info("Starting MQTT");
+        logger.info("MQTT protocol");
+        if (mqttBrokerEnabled) {
+            logger.info("Starting MQTT");
+        }
     }
     
     /* /echo - GET 

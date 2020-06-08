@@ -650,26 +650,26 @@ public class AuthorizationController {
 		}
 	}
 	
-	//-------------------------------------------------------------------------------------------------
-	private void checkTokenGenerationProviderDTO(final TokenGenerationProviderDTO provider, final String origin) {
-		logger.debug("checkTokenGenerationProviderDTO started...");
-		
-		checkSystemRequest(provider.getProvider(), origin, true);
-		
-		if (provider.getServiceInterfaces() == null || provider.getServiceInterfaces().isEmpty()) {
-			throw new BadPayloadException("Service interface list is null or empty", HttpStatus.SC_BAD_REQUEST, origin);
-		}
-		
-		for (final String intf : provider.getServiceInterfaces()) {
-			if (!interfaceNameVerifier.isValid(intf)) {
-				throw new BadPayloadException("Specified interface name is not valid: " + intf, HttpStatus.SC_BAD_REQUEST, origin);
-			}
-		}
-		
-		if (provider.getTokenDuration() <= 0) {
-			provider.setTokenDuration(-1);
-		}
-	}
+	   //-------------------------------------------------------------------------------------------------
+    private void checkTokenGenerationProviderDTO(final TokenGenerationProviderDTO provider, final String origin) {
+        logger.debug("checkTokenGenerationProviderDTO started...");
+
+        checkSystemRequest(provider.getProvider(), origin, true);
+
+        if (provider.getServiceInterfaces() == null || provider.getServiceInterfaces().isEmpty()) {
+            throw new BadPayloadException("Service interface list is null or empty", HttpStatus.SC_BAD_REQUEST, origin);
+        }
+
+        for (final String intf : provider.getServiceInterfaces()) {
+            if (!interfaceNameVerifier.isValid(intf)) {
+                throw new BadPayloadException("Specified interface name is not valid: " + intf, HttpStatus.SC_BAD_REQUEST, origin);
+            }
+        }
+
+        if (provider.getTokenDuration() <= 0) {
+            provider.setTokenDuration(-1);
+        }
+    }
 
 	//-------------------------------------------------------------------------------------------------
 	private void checkSystemRequest(final SystemRequestDTO system, final String origin, final boolean mandatoryAuthInfo) {

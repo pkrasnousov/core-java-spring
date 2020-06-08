@@ -21,15 +21,15 @@ import org.eclipse.californium.elements.exception.ConnectorException;
  *
  * @author Pablo Puñal Pereira <pablo.punal@thingwave.eu>
  */
-public class ServiceRegistryClient {
+public class AuthorizationClient {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ServiceRegistryClient.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(AuthorizationClient.class.getName());
     private static final String CONFIG_FILE = "client.properties";
-    private static final String SERVICE_NAME = "service_registry";
+    private static final String SERVICE_NAME = "authorization";
     private final ClientCoap clientCoap;
 
-    public ServiceRegistryClient() {
-        LOG.info("Create new ServiceRegistryClient");
+    public AuthorizationClient() {
+        LOG.info("Create new OrchestratorClient");
 
         // Reading configuration!
         InputStream inputStream = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE);
@@ -69,22 +69,6 @@ public class ServiceRegistryClient {
         CoapResponse response = clientCoap.GET(".well-known/core");
         return formatResources(response);
     }
-    
-    public CoapResponse getManagementSystemById(int id) throws ConnectorException, IOException {
-        CoapResponse response = clientCoap.GET(String.format("mgmt/system/%d", id));
-        return response;
-    }
-    
-    public CoapResponse getManagementSystems() throws ConnectorException, IOException {
-        CoapResponse response = clientCoap.GET("mgmt/systems");
-        return response;
-    }
-    
-    public CoapResponse getManagementSystems(int page, int size) throws ConnectorException, IOException {
-        CoapResponse response = clientCoap.GET(String.format("mgmt/systems?page=%d&size=%d", page, size));
-        return response;
-    }
-    
     
     public CoapResponse coapGET(String path) throws ConnectorException, IOException {
         CoapResponse response = clientCoap.GET(path);
