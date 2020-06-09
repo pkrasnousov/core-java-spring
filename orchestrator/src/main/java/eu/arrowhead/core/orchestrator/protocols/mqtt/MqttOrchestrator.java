@@ -20,8 +20,16 @@ import eu.arrowhead.core.orchestrator.service.OrchestratorService;
 
 import org.springframework.beans.factory.annotation.Value;
 
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+
 @Component
-public class MqttOrchestrator {
+public class MqttOrchestrator implements MqttCallback, Runnable {
 
     //=================================================================================================
     // members    
@@ -67,6 +75,8 @@ public class MqttOrchestrator {
     private final String URL_PATH_ORCHESTRATOR = "orchestrator";
     private final String URL_PATH_ID = "id";
 
+    Thread t = null;
+
     //=================================================================================================
     // methods
     //-------------------------------------------------------------------------------------------------
@@ -75,6 +85,11 @@ public class MqttOrchestrator {
         logger.info("MQTT protocol");
         if (mqttBrokerEnabled) {
             logger.info("Starting MQTT");
+
+	    /* connect to MQTT Broker */
+
+	    t = new Thread(this);
+	    t.start();
         }
     }
 
@@ -155,6 +170,34 @@ public class MqttOrchestrator {
         }
     }
     
+    @Override
+    public void run() {
+      try {
+	while(true) {
+	  //logger.info("MQTT timeut thread");
+          Thread.sleep(1000);
+	}
+      } catch(InterruptedException iex) {
+        logger.info("Error starting MQTT timeout thread");
+      }
+    
+    }
+
+    @Override
+    public void connectionLost(Throwable cause) {
+    
+    }
+    
+    @Override
+    public void messageArrived(String topic, MqttMessage message) {
+    
+    }
+
+    @Override
+    public void deliveryComplete(IMqttDeliveryToken token) {
+    
+    }
+
     /* /echo - GET 
     exchange.respond(
                     CoAP.ResponseCode.CONTENT,
