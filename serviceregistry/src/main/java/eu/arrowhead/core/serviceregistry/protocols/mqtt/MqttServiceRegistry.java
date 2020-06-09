@@ -26,8 +26,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Component;
 
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+
 @Component
-public class MqttServiceRegistry {
+public class MqttServiceRegistry implements MqttCallback, Runnable {
 
     //=================================================================================================
     // members    
@@ -85,6 +93,8 @@ public class MqttServiceRegistry {
     final String UNREGISTER_SERVICE_PROVIDER_PORT_KEY = "port";
     final String UNREGISTER_SERVICE_PROVIDER_SYSTEM_NAME_KEY = "system_name";
 
+    Thread t = null;
+
     //=================================================================================================
     // methods
     //-------------------------------------------------------------------------------------------------
@@ -93,9 +103,42 @@ public class MqttServiceRegistry {
         logger.info("MQTT protocol");
         if (mqttBrokerEnabled) {
             logger.info("Starting MQTT");
+
+	    /* connect to MQTT Broker */
+
+	    t = new Thread(this);
+	    t.start();
         }
     }
+
+    @Override
+    public void run() {
+      try {
+	while(true) {
+	  //logger.info("MQTT timeut thread");
+          Thread.sleep(1000);
+	}
+      } catch(InterruptedException iex) {
+        logger.info("Error starting MQTT timeout thread");
+      }
     
+    }
+
+    @Override
+    public void connectionLost(Throwable cause) {
+    
+    }
+    
+    @Override
+    public void messageArrived(String topic, MqttMessage message) {
+    
+    }
+
+    @Override
+    public void deliveryComplete(IMqttDeliveryToken token) {
+    
+    }
+
     /* /echo - GET 
     exchange.respond(
                     ResponseCode.CONTENT,
