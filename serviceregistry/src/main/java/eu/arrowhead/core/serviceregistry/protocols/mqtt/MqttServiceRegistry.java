@@ -47,6 +47,9 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
     @Autowired
     private ServiceRegistryDBService serviceRegistryDBService;
 
+    @Value(CoreCommonConstants.$CORE_SYSTEM_NAME)
+    private String mqttSystemName;
+
     @Value(CoreCommonConstants.$MQTT_BROKER_ENABLED)
     private boolean mqttBrokerEnabled;
 
@@ -111,9 +114,26 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
         }
     }
 
+    private void connectBroker() {
+      MemoryPersistence persistence = new MemoryPersistence();
+
+      try {
+	MqttClient client = new MqttClient(mqttBrokerAddress, mqttSystemName, persistence);
+	MqttConnectOptions connOpts = new MqttConnectOptions();
+	connOpts.setCleanSession(true);
+
+	client.setCallback(this);
+	client.connect(connOpts);
+      } catch(MqttException me) {
+	  logger.info("Could no connect to MQTT broker!\n\t" + me.toString());
+      }
+    
+    }
+
     @Override
     public void run() {
       try {
+	connectBroker();
 	while(true) {
 	  //logger.info("MQTT timeut thread");
           Thread.sleep(1000);
