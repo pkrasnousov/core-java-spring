@@ -89,23 +89,24 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
         if (mqttBrokerEnabled) {
             logger.info("Starting MQTT");
 
-	    /* connect to MQTT Broker */
-
 	    t = new Thread(this);
 	    t.start();
         }
     }
 
+    MqttClient client = null;
+    MemoryPersistence persistence = null;
     private void connectBroker() {
       MemoryPersistence persistence = new MemoryPersistence();
 
       try {
-	MqttClient client = new MqttClient(mqttBrokerAddress, mqttSystemName, persistence);
 	MqttConnectOptions connOpts = new MqttConnectOptions();
 	connOpts.setCleanSession(true);
 
 	client.setCallback(this);
 	client.connect(connOpts);
+	String topics[] = {"ah/orchestration/echo", "ah/orchestration", "ah/orchestration/id"};
+	client.subscribe(topics);
       } catch(MqttException me) {
 	  logger.info("Could no connect to MQTT broker!\n\t" + me.toString());
       }
@@ -192,25 +193,48 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
     
     @Override
     public void run() {
-      try {
-	while(true) {
-	  //logger.info("MQTT timeut thread");
-          Thread.sleep(1000);
+      while(true) {
+	try {
+	  if (client == null) {
+	    persistence = new MemoryPersistence();
+	    client = new MqttClient(mqttBrokerAddress, mqttSystemName, persistence);
+	  }
+	  if (!client.isConnected()) {
+	    connectBroker();
+	  }
+          Thread.sleep(1000 * 15);
+	} catch(InterruptedException iex) {
+	  logger.info("Error starting MQTT timeout thread");
+	} catch(MqttException mex) {
+	  logger.info("MQTT error: " + mex.toString());
 	}
-      } catch(InterruptedException iex) {
-        logger.info("Error starting MQTT timeout thread");
       }
     
     }
 
     @Override
     public void connectionLost(Throwable cause) {
-    
+      logger.info("Connection lost to MQTT broker");
+      client = null;
     }
     
     @Override
     public void messageArrived(String topic, MqttMessage message) {
-    
+      
+      switch(topic) {
+	case "ah/orchestration/echo":
+	  logger.info("orchestration/echo(): " + message.toString());
+	  break;
+	case "ah/orchestration":
+	  logger.info("orchestration(): " + message.toString());
+	  break;
+	case "ah/orchestration/id":
+	  logger.info("orchestration/id(): " + message.toString());
+	  break;
+	default:
+	  logger.info("Received message to unsupported topic");
+      }
+
     }
 
     @Override

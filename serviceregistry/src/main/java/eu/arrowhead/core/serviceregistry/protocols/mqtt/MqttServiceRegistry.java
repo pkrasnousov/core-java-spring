@@ -7,14 +7,18 @@ import eu.arrowhead.common.CoreDefaults;
 import eu.arrowhead.common.CoreCommonConstants;
 import eu.arrowhead.common.CoreUtilities;
 import eu.arrowhead.common.Utilities;
+import eu.arrowhead.common.exception.ArrowheadException;
 import eu.arrowhead.common.core.CoreSystemService;
 import eu.arrowhead.common.dto.internal.ServiceDefinitionRequestDTO;
 import eu.arrowhead.common.dto.shared.ServiceQueryFormDTO;
 import eu.arrowhead.common.dto.shared.ServiceRegistryRequestDTO;
 import eu.arrowhead.common.dto.shared.ServiceSecurityType;
 import eu.arrowhead.common.dto.shared.SystemRequestDTO;
+import eu.arrowhead.common.dto.shared.MqttRequestDTO;
+import eu.arrowhead.common.dto.shared.MqttResponseDTO;
 import eu.arrowhead.core.serviceregistry.database.service.ServiceRegistryDBService;
 
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
 import javax.annotation.PostConstruct;
@@ -107,51 +111,107 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
         if (mqttBrokerEnabled) {
             logger.info("Starting MQTT");
 
-	    /* connect to MQTT Broker */
-
 	    t = new Thread(this);
 	    t.start();
         }
     }
 
+    MqttClient client = null;
+    MemoryPersistence persistence = null;
     private void connectBroker() {
-      MemoryPersistence persistence = new MemoryPersistence();
 
       try {
-	MqttClient client = new MqttClient(mqttBrokerAddress, mqttSystemName, persistence);
 	MqttConnectOptions connOpts = new MqttConnectOptions();
 	connOpts.setCleanSession(true);
 
 	client.setCallback(this);
 	client.connect(connOpts);
-      } catch(MqttException me) {
-	  logger.info("Could no connect to MQTT broker!\n\t" + me.toString());
+	String topics[] = {"ah/serviceregistry/echo", "ah/serviceregistry/register", "ah/serviceregistry/unregister", "ah/serviceregistry/query"};
+	client.subscribe(topics);
+      } catch(MqttException mex) {
+	  logger.info("Could no connect to MQTT broker!\n\t" + mex.toString());
       }
     
     }
 
     @Override
     public void run() {
-      try {
-	connectBroker();
-	while(true) {
-	  //logger.info("MQTT timeut thread");
-          Thread.sleep(1000);
+      while(true) {
+	try {
+	  if (client == null) {
+	    persistence = new MemoryPersistence();
+	    client = new MqttClient(mqttBrokerAddress, mqttSystemName, persistence);
+	  }
+	  if (!client.isConnected()) {
+	    connectBroker();
+	  }
+          Thread.sleep(1000 * 15);
+	} catch(InterruptedException iex) {
+	  logger.info("Error starting MQTT timeout thread");
+	} catch(MqttException mex) {
+	  logger.info("MQTT error: " + mex.toString());
 	}
-      } catch(InterruptedException iex) {
-        logger.info("Error starting MQTT timeout thread");
       }
     
     }
 
     @Override
     public void connectionLost(Throwable cause) {
-    
+        logger.info("Connection lost to MQTT broker");
+	client = null;
     }
     
     @Override
     public void messageArrived(String topic, MqttMessage message) {
-    
+      MqttRequestDTO request = null;
+      MqttResponseDTO response= null;
+
+      try {
+	request = Utilities.fromJson(message.toString(), MqttRequestDTO.class);
+      } catch (ArrowheadException ae) {
+	logger.info("Could not convert MQTT message to REST request!");
+	return;
+      }
+
+      logger.info(request.toString());
+
+      switch(topic) {
+	case "ah/serviceregistry/echo":
+	  logger.info(request.getMethod() + " echo(): " + new String(message.getPayload(), StandardCharsets.UTF_8));
+	  if (!request.getMethod().toLowerCase().equals("get")) {
+	    return;
+	  }
+	  try {
+	    response = new MqttResponseDTO("200", "Got it");
+	    MqttMessage resp = new MqttMessage(Utilities.toJson(response).getBytes());
+	    resp.setQos(2);
+	    client.publish(request.getReplyTo(), resp);
+	  } catch (MqttException mex){
+	    logger.info("echo(): Couldn't reply " + mex.toString());
+	  }
+	  break;
+	case "ah/serviceregistry/register":
+	  logger.info("register(): " + message.toString());
+	  if (!request.getMethod().toLowerCase().equals("post")) {
+	    return;
+	  }
+	  
+	  break;
+	case "ah/serviceregistry/unregister":
+	  logger.info("unregister(): " + message.toString());
+	  if (!request.getMethod().toLowerCase().equals("post")) {
+	    return;
+	  }
+	  break;
+	case "ah/serviceregistry/query":
+	  logger.info("query(): " + message.toString());
+	  if (!request.getMethod().toLowerCase().equals("get")) {
+	    return;
+	  }
+	  break;
+	default:
+	  logger.info("Received message to unsupported topic");
+      }
     }
 
     @Override
