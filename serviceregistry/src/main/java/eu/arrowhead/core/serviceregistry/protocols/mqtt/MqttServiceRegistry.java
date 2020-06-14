@@ -256,9 +256,38 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	  break;
 	case "ah/serviceregistry/unregister":
 	  logger.info("unregister(): " + message.toString());
-	  if (!request.getMethod().toLowerCase().equals("post")) {
+	  if (!request.getMethod().toLowerCase().equals("delete")) {
 	    return;
 	  }
+  
+	  try {
+	    String serviceDefinition = request.getQueryParameters().get("serviceDefinition");
+	    String providerName = request.getQueryParameters().get("providerName");
+	    String providerAddress = request.getQueryParameters().get("providerAddress");
+	    int providerPort = Integer.parseInt(request.getQueryParameters().get("providerPort"));
+
+	    if (Utilities.isEmpty(serviceDefinition)) {
+	      throw new Exception("Service definition is blank");
+	    }
+
+	    if (Utilities.isEmpty(providerName)) {
+	      throw new Exception("Name of the provider system is blank");
+	    }
+
+	    if (Utilities.isEmpty(providerAddress)) {
+	      throw new Exception("Address of the provider system is blank");
+	    }
+
+	    if (providerPort < CommonConstants.SYSTEM_PORT_RANGE_MIN || providerPort > CommonConstants.SYSTEM_PORT_RANGE_MAX) {
+	      throw new Exception("Port must be between " + CommonConstants.SYSTEM_PORT_RANGE_MIN + " and " + CommonConstants.SYSTEM_PORT_RANGE_MAX + ".");
+	    }
+	    serviceRegistryDBService.removeServiceRegistry(serviceDefinition, providerName, providerAddress, providerPort);
+
+	    return;
+	  } catch(Exception e) {
+	    logger.info("illegal request: " + e.toString());
+	  }
+
 	  break;
 	case "ah/serviceregistry/query":
 	  logger.info("query(): " + message.toString());
