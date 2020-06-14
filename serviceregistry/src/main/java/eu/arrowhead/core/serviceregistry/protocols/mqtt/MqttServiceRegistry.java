@@ -189,7 +189,7 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	    return;
 	  }
 	  try {
-	    response = new MqttResponseDTO("200", "Got it");
+	    response = new MqttResponseDTO("200", "text/plain", "Got it");
 	    MqttMessage resp = new MqttMessage(Utilities.toJson(response).getBytes());
 	    resp.setQos(2);
 	    client.publish(request.getReplyTo(), resp);
@@ -242,7 +242,7 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	  }
 
 	  logger.info("SRREQ:: " + serviceRegistryRequestDTO.toString());
-	  response = new MqttResponseDTO("200", null);
+	  response = new MqttResponseDTO("200", "application/json", null);
 	  response.setPayload(serviceRegistryDBService.registerServiceResponse(serviceRegistryRequestDTO));
 	  MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
 	  resp.setQos(2);
@@ -291,16 +291,36 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	  break;
 	case "ah/serviceregistry/query":
 	  logger.info("query(): " + message.toString());
-	  if (!request.getMethod().toLowerCase().equals("get")) {
+	  if (!request.getMethod().toLowerCase().equals("post")) {
 	    return;
 	  }
+
+	  try {
+	    ServiceQueryFormDTO serviceQueryFormDTO = mapper.convertValue(request.getPayload(), ServiceQueryFormDTO.class);
+
+	    if (Utilities.isEmpty(serviceQueryFormDTO.getServiceDefinitionRequirement())) {
+	      throw new Exception("Service definition requirement is null or blank");
+	    }
+
+
+	    logger.info("SRQUERY:: " + serviceQueryFormDTO.toString());
+	    response = new MqttResponseDTO("200", "application/json", null);
+	    response.setPayload(serviceRegistryDBService.queryRegistry(serviceQueryFormDTO));
+	    MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	    resp.setQos(2);
+	    client.publish(request.getReplyTo(), resp);
+	    return;
+	  } catch(Exception e) {
+
+	  }
+
 	  break;
 	default:
 	  logger.info("Received message to unsupported topic");
       }
 
       try { 
-	MqttResponseDTO srResponse = new MqttResponseDTO("400", null);
+	MqttResponseDTO srResponse = new MqttResponseDTO("400", null, null);
 	String respJson = mapper.convertValue(srResponse, String.class);
 	logger.info("RESP IS: " + respJson);
 	MqttMessage resp = new MqttMessage(respJson.getBytes());
