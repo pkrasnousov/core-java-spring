@@ -1,6 +1,8 @@
 package eu.arrowhead.core.serviceregistry.protocols.mqtt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 
 import eu.arrowhead.common.CommonConstants;
 import eu.arrowhead.common.CoreDefaults;
@@ -21,6 +23,7 @@ import eu.arrowhead.core.serviceregistry.database.service.ServiceRegistryDBServi
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
+import java.util.Base64;
 import javax.annotation.PostConstruct;
 
 import org.apache.logging.log4j.LogManager;
@@ -165,10 +168,14 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
     public void messageArrived(String topic, MqttMessage message) {
       MqttRequestDTO request = null;
       MqttResponseDTO response= null;
+      ObjectMapper mapper;
 
       try {
-	request = Utilities.fromJson(message.toString(), MqttRequestDTO.class);
-      } catch (ArrowheadException ae) {
+	//request = Utilities.fromJson(message.toString(), MqttRequestDTO.class);
+	mapper = new ObjectMapper();
+	mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+	request = mapper.readValue(message.toString(), MqttRequestDTO.class);
+      } catch (Exception ae) {
 	logger.info("Could not convert MQTT message to REST request!");
 	return;
       }
@@ -186,16 +193,66 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	    MqttMessage resp = new MqttMessage(Utilities.toJson(response).getBytes());
 	    resp.setQos(2);
 	    client.publish(request.getReplyTo(), resp);
+	    return;
 	  } catch (MqttException mex){
 	    logger.info("echo(): Couldn't reply " + mex.toString());
 	  }
 	  break;
-	case "ah/serviceregistry/register":
-	  logger.info("register(): " + message.toString());
-	  if (!request.getMethod().toLowerCase().equals("post")) {
-	    return;
+	  case "ah/serviceregistry/register":
+
+	  try {
+	    logger.info("register(): " + new String(message.getPayload(), StandardCharsets.UTF_8));
+	    if (!request.getMethod().toLowerCase().equals("post")) {
+	      return;
+	    }
+
+	    ServiceRegistryRequestDTO serviceRegistryRequestDTO = mapper.convertValue(request.getPayload(), ServiceRegistryRequestDTO.class);
+	    //String origin = URL_PATH_MGMT + "/" + URL_PATH_REGISTER;
+
+	    if (Utilities.isEmpty(serviceRegistryRequestDTO.getServiceDefinition())) {
+	      throw new Exception("Service definition is null or blank");
+	    }
+
+	    if (!Utilities.isEmpty(serviceRegistryRequestDTO.getEndOfValidity())) {
+	      try {
+	      Utilities.parseUTCStringToLocalZonedDateTime(serviceRegistryRequestDTO.getEndOfValidity().trim());
+	    } catch (final DateTimeParseException ex) {
+	      throw new Exception("End of validity is specified in the wrong format. Please provide UTC time using " + Utilities.getDatetimePattern() + " pattern.");
+	    }
 	  }
-	  
+
+	  ServiceSecurityType securityType = null;
+	  if (serviceRegistryRequestDTO.getSecure() != null) {
+	    for (final ServiceSecurityType type : ServiceSecurityType.values()) {
+	      if (type.name().equalsIgnoreCase(serviceRegistryRequestDTO.getSecure())) {
+		securityType = type;
+		break;
+	      }
+	    }
+
+	    if (securityType == null) {
+	      throw new Exception("Security type is not valid.");
+	    }
+	  } else {
+	    securityType = ServiceSecurityType.NOT_SECURE;
+	  }
+
+	  if (securityType != ServiceSecurityType.NOT_SECURE && serviceRegistryRequestDTO.getProviderSystem().getAuthenticationInfo() == null) {
+	    throw new Exception("Security type is in conflict with the availability of the authentication info.");
+	  }
+
+	  logger.info("SRREQ:: " + serviceRegistryRequestDTO.toString());
+	  response = new MqttResponseDTO("200", null);
+	  response.setPayload(serviceRegistryDBService.registerServiceResponse(serviceRegistryRequestDTO));
+	  MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	  resp.setQos(2);
+	  client.publish(request.getReplyTo(), resp);
+	  return;
+
+	  } catch (Exception e) {
+	    logger.info("Could not register: " + e.toString());
+
+	  }
 	  break;
 	case "ah/serviceregistry/unregister":
 	  logger.info("unregister(): " + message.toString());
@@ -211,6 +268,17 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	  break;
 	default:
 	  logger.info("Received message to unsupported topic");
+      }
+
+      try { 
+	MqttResponseDTO srResponse = new MqttResponseDTO("400", null);
+	String respJson = mapper.convertValue(srResponse, String.class);
+	logger.info("RESP IS: " + respJson);
+	MqttMessage resp = new MqttMessage(respJson.getBytes());
+	resp.setQos(2);
+	client.publish(request.getReplyTo(), resp);
+      } catch(Exception me){
+	  logger.info("Could not reply: " + me.toString());
       }
     }
 
