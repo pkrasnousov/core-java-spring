@@ -25,7 +25,7 @@
   	<modules>
 	    <module>core-common</module>
 	    <module>serviceregistry</module>
-	    <!--module>authorization</module>
+	    <module>authorization</module>
 	    <module>certificate-authority</module>
 	    <module>orchestrator</module>
 	    <module>eventhandler</module>
@@ -34,7 +34,7 @@
 	    <module>choreographer</module>
 	    <module>qos-monitor</module>
 	    <module>deb-installer</module>
-	    <module>docker-all</module-->
+	    <module>docker-all</module>
   	</modules>
   	
 	<properties>
