@@ -23,7 +23,6 @@ import eu.arrowhead.core.serviceregistry.database.service.ServiceRegistryDBServi
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
-import java.util.Base64;
 import javax.annotation.PostConstruct;
 
 import org.apache.logging.log4j.LogManager;
@@ -215,39 +214,39 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 
 	    if (!Utilities.isEmpty(serviceRegistryRequestDTO.getEndOfValidity())) {
 	      try {
-	      Utilities.parseUTCStringToLocalZonedDateTime(serviceRegistryRequestDTO.getEndOfValidity().trim());
-	    } catch (final DateTimeParseException ex) {
-	      throw new Exception("End of validity is specified in the wrong format. Please provide UTC time using " + Utilities.getDatetimePattern() + " pattern.");
-	    }
-	  }
-
-	  ServiceSecurityType securityType = null;
-	  if (serviceRegistryRequestDTO.getSecure() != null) {
-	    for (final ServiceSecurityType type : ServiceSecurityType.values()) {
-	      if (type.name().equalsIgnoreCase(serviceRegistryRequestDTO.getSecure())) {
-		securityType = type;
-		break;
+		Utilities.parseUTCStringToLocalZonedDateTime(serviceRegistryRequestDTO.getEndOfValidity().trim());
+	      } catch (final DateTimeParseException ex) {
+		throw new Exception("End of validity is specified in the wrong format. Please provide UTC time using " + Utilities.getDatetimePattern() + " pattern.");
 	      }
 	    }
 
-	    if (securityType == null) {
-	      throw new Exception("Security type is not valid.");
+	    ServiceSecurityType securityType = null;
+	    if (serviceRegistryRequestDTO.getSecure() != null) {
+	      for (final ServiceSecurityType type : ServiceSecurityType.values()) {
+		if (type.name().equalsIgnoreCase(serviceRegistryRequestDTO.getSecure())) {
+		  securityType = type;
+		  break;
+		}
+	      }
+
+	      if (securityType == null) {
+		throw new Exception("Security type is not valid.");
+	      }
+	    } else {
+	      securityType = ServiceSecurityType.NOT_SECURE;
 	    }
-	  } else {
-	    securityType = ServiceSecurityType.NOT_SECURE;
-	  }
 
-	  if (securityType != ServiceSecurityType.NOT_SECURE && serviceRegistryRequestDTO.getProviderSystem().getAuthenticationInfo() == null) {
-	    throw new Exception("Security type is in conflict with the availability of the authentication info.");
-	  }
+	    if (securityType != ServiceSecurityType.NOT_SECURE && serviceRegistryRequestDTO.getProviderSystem().getAuthenticationInfo() == null) {
+	      throw new Exception("Security type is in conflict with the availability of the authentication info.");
+	    }
 
-	  logger.info("SRREQ:: " + serviceRegistryRequestDTO.toString());
-	  response = new MqttResponseDTO("200", "application/json", null);
-	  response.setPayload(serviceRegistryDBService.registerServiceResponse(serviceRegistryRequestDTO));
-	  MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
-	  resp.setQos(2);
-	  client.publish(request.getReplyTo(), resp);
-	  return;
+	    logger.info("SRREQ:: " + serviceRegistryRequestDTO.toString());
+	    response = new MqttResponseDTO("200", "application/json", null);
+	    response.setPayload(serviceRegistryDBService.registerServiceResponse(serviceRegistryRequestDTO));
+	    MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	    resp.setQos(2);
+	    client.publish(request.getReplyTo(), resp);
+	    return;
 
 	  } catch (Exception e) {
 	    logger.info("Could not register: " + e.toString());
@@ -301,7 +300,6 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	    if (Utilities.isEmpty(serviceQueryFormDTO.getServiceDefinitionRequirement())) {
 	      throw new Exception("Service definition requirement is null or blank");
 	    }
-
 
 	    logger.info("SRQUERY:: " + serviceQueryFormDTO.toString());
 	    response = new MqttResponseDTO("200", "application/json", null);

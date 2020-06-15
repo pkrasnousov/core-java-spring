@@ -2,6 +2,7 @@ package eu.arrowhead.core.orchestrator.protocols.mqtt;
 
 import eu.arrowhead.core.orchestrator.protocols.coap.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import javax.annotation.PostConstruct;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,9 +17,14 @@ import eu.arrowhead.common.dto.shared.OrchestrationFlags.Flag;
 import eu.arrowhead.common.dto.shared.OrchestrationFormRequestDTO;
 import eu.arrowhead.common.dto.shared.PreferredProviderDataDTO;
 import eu.arrowhead.common.dto.shared.SystemRequestDTO;
+import eu.arrowhead.common.dto.shared.MqttRequestDTO;
+import eu.arrowhead.common.dto.shared.MqttResponseDTO;
 import eu.arrowhead.core.orchestrator.service.OrchestratorService;
 
 import org.springframework.beans.factory.annotation.Value;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -220,19 +226,125 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
     
     @Override
     public void messageArrived(String topic, MqttMessage message) {
+      MqttRequestDTO request = null;
+      MqttResponseDTO response= null;
+      ObjectMapper mapper;
       
+      try {
+	//request = Utilities.fromJson(message.toString(), MqttRequestDTO.class);
+	mapper = new ObjectMapper();
+	mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+	request = mapper.readValue(message.toString(), MqttRequestDTO.class);
+      } catch (Exception ae) {
+	logger.info("Could not convert MQTT message to REST request!");
+	return;
+      }
+
+      logger.info(request.toString());
+
       switch(topic) {
 	case "ah/orchestration/echo":
-	  logger.info("orchestration/echo(): " + message.toString());
+	  logger.info("ah/orchestration/echo(): " + new String(message.getPayload(), StandardCharsets.UTF_8));
+	  if (!request.getMethod().toLowerCase().equals("get")) {
+	    return;
+	  }
+	  try {
+	    response = new MqttResponseDTO("200", "text/plain", "Got it");
+	    MqttMessage resp = new MqttMessage(Utilities.toJson(response).getBytes());
+	    resp.setQos(2);
+	    client.publish(request.getReplyTo(), resp);
+	    return;
+	  } catch (MqttException mex){
+	    logger.info("echo(): Couldn't reply " + mex.toString());
+	  }
 	  break;
 	case "ah/orchestration":
-	  logger.info("orchestration(): " + message.toString());
+	  logger.info("ah/orchestration(): " + new String(message.getPayload(), StandardCharsets.UTF_8));
+	  if (!request.getMethod().toLowerCase().equals("post")) {
+	    return;
+	  }
+
+	  try {
+	    OrchestrationFormRequestDTO orchRequest = mapper.convertValue(request.getPayload(), OrchestrationFormRequestDTO.class);
+
+	    final String origin = CommonConstants.ORCHESTRATOR_URI + CommonConstants.OP_ORCH_PROCESS;
+	    checkOrchestratorFormRequestDTO(orchRequest, origin);
+
+	    if (orchRequest.getOrchestrationFlags().getOrDefault(Flag.EXTERNAL_SERVICE_REQUEST, false)) {
+	      if (!gatekeeperIsPresent) {
+		throw new Exception("External service request, Gatekeeper is not present.");
+	      }
+	      response = new MqttResponseDTO("200", "application/json", null);
+	      response.setPayload(orchestratorService.externalServiceRequest(orchRequest));
+	      MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	      resp.setQos(2);
+	      client.publish(request.getReplyTo(), resp);
+	      return;
+	    } else if (orchRequest.getOrchestrationFlags().getOrDefault(Flag.TRIGGER_INTER_CLOUD, false)) {
+	      if (!gatekeeperIsPresent) {
+		throw new Exception("External service request, Gatekeeper is not present.");
+	      }
+	      response = new MqttResponseDTO("200", "application/json", null);
+	      response.setPayload(orchestratorService.triggerInterCloud(orchRequest));
+	      MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	      resp.setQos(2);
+	      client.publish(request.getReplyTo(), resp);
+	      return;
+	    } else if (!orchRequest.getOrchestrationFlags().getOrDefault(Flag.OVERRIDE_STORE, false)) {
+	      response = new MqttResponseDTO("200", "application/json", null);
+	      response.setPayload(orchestratorService.orchestrationFromStore(orchRequest));
+	      MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	      resp.setQos(2);
+	      client.publish(request.getReplyTo(), resp);
+	      return;
+	    } else {
+	      response = new MqttResponseDTO("200", "application/json", null);
+	      response.setPayload(orchestratorService.dynamicOrchestration(orchRequest));
+	      MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	      resp.setQos(2);
+	      client.publish(request.getReplyTo(), resp);
+	      return;
+	    }
+
+	  } catch (Exception ex) {
+	    try {
+	      response = new MqttResponseDTO("500", "text/plain", null);
+	      //response.setPayload(orchestratorService.dynamicOrchestration(orchRequest));
+	      MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	      resp.setQos(2);
+	      client.publish(request.getReplyTo(), resp);
+	      //return;
+	    } catch(Exception mex){
+	    }
+	  }
 	  break;
 	case "ah/orchestration/id":
-	  logger.info("orchestration/id(): " + message.toString());
+	  logger.info("orchestration/id(): " + new String(message.getPayload(), StandardCharsets.UTF_8));
+	  if (!request.getMethod().toLowerCase().equals("post")) {
+	    return;
+	  }
+
+	  try {
+	    int id = Integer.parseInt(request.getQueryParameters().get("id"));
+
+	    if (id < 1) {
+	      throw new Exception("Id not valid");
+	    }
+
+	    ;
+	    response = new MqttResponseDTO("200", "application/json", null);
+	    response.setPayload(orchestratorService.storeOchestrationProcessResponse(id));
+	    MqttMessage resp = new MqttMessage(mapper.writeValueAsString(response).getBytes());
+	    resp.setQos(2);
+	    client.publish(request.getReplyTo(), resp);
+	    return;
+	  } catch (Exception e) {
+	    logger.info("illegal request: " + e.toString());
+	  }
+
 	  break;
 	default:
-	  logger.info("Received message to unsupported topic");
+	    logger.info("Received message to unsupported topic");
       }
 
     }
