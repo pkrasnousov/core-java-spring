@@ -1,0 +1,5 @@
+FROM openjdk:11-jre-slim
+
+COPY qos-monitor/*.jar /qos-monitor/arrowhead-qos-monitor.jar
+
+CMD cd /qos-monitor && java -jar arrowhead-qos-monitor.jar

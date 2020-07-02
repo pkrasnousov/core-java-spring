@@ -1,0 +1,5 @@
+FROM openjdk:11-jre-slim
+
+COPY choreographer/*.jar /choreographer/arrowhead-choreographer.jar
+
+CMD cd /choreographer && java -jar arrowhead-choreographer.jar

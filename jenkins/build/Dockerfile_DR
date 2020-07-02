@@ -1,0 +1,5 @@
+FROM openjdk:11-jre-slim
+
+COPY deviceregistry/*.jar /deviceregistry/arrowhead-deviceregistry.jar
+
+CMD cd /deviceregistry && java -jar arrowhead-deviceregistry.jar

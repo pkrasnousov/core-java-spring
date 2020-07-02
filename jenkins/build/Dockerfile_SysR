@@ -1,0 +1,5 @@
+FROM openjdk:11-jre-slim
+
+COPY systemregistry/*.jar /systemregistry/arrowhead-systemregistry.jar
+
+CMD cd /systemregistry && java -jar arrowhead-systemregistry.jar

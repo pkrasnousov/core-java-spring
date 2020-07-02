@@ -44,45 +44,113 @@ services:
     ports:
       - 8441:8441
 
-  eventhandler:
-    container_name: eventhandler
-    image: svetlint/eventhandler:latest
-    depends_on:
-      - mysql
-    volumes:
-      - ./core_system_config/eventhandler.properties:/eventhandler/application.properties
-    ports:
-      - 8455:8455
-  
-  gatekeeper:
-    container_name: gatekeeper
-    image: svetlint/gatekeeper:latest
-    depends_on:
-      - mysql
-    volumes:
-      - ./core_system_config/gatekeeper.properties:/gatekeeper/application.properties
-    ports:
-      - 8449:8449
+# Uncomment if you wish to use the Event Handler
+#
+#  eventhandler:
+#    container_name: eventhandler
+#    image: svetlint/eventhandler:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/eventhandler.properties:/eventhandler/application.properties
+#    ports:
+#      - 8455:8455
 
-  gateway:
-    container_name: gateway
-    image: svetlint/gateway:latest
-    depends_on:
-      - mysql
-    volumes:
-      - ./core_system_config/gateway.properties:/gateway/application.properties
-    ports:
-      - 8453:8453
+# Uncomment if you wish to use the Gatekeeper
+#
+#  gatekeeper:
+#    container_name: gatekeeper
+#    image: svetlint/gatekeeper:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/gatekeeper.properties:/gatekeeper/application.properties
+#    ports:
+#      - 8449:8449
 
-  certificateauthority:
-    container_name: certificateauthority
-    image: svetlint/certificateauthority:latest
-    depends_on:
-      - mysql
-    volumes:
-      - ./core_system_config/certificateauthority.properties:/certificateauthority/application.properties
-    ports:
-      - 8448:8448 
+# Uncomment if you wish to use the Gateway
+#
+#  gateway:
+#    container_name: gateway
+#    image: svetlint/gateway:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/gateway.properties:/gateway/application.properties
+#    ports:
+#      - 8453:8453
+
+# Uncomment if you wish to use the Certificate Authority
+#
+#  certificateauthority:
+#    container_name: certificateauthority
+#    image: svetlint/certificateauthority:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/certificateauthority.properties:/certificateauthority/application.properties
+#    ports:
+#      - 8448:8448
+
+# Uncomment if you wish to use the QoS Monitor
+#
+#  qosmonitor:
+#    container_name: qosmonitor
+#    image: svetlint/qosmonitor:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/qosmonitor.properties:/qosmonitor/application.properties
+#    ports:
+#      - 8451:8451
+
+# Uncomment if you wish to use the Onboarding Controller
+#
+#  onboardingcontroller:
+#    container_name: onboardingcontroller
+#    image: svetlint/onboardingcontroller:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/onboardingcontroller.properties:/onboardingcontroller/application.properties
+#    ports:
+#      - 8435:8435
+
+# Uncomment if you wish to use the Device Registry
+#
+#  deviceregistry:
+#    container_name: deviceregistry
+#    image: svetlint/deviceregistry:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/deviceregistry.properties:/deviceregistry/application.properties
+#    ports:
+#      - 8439:8439
+
+# Uncomment if you wish to use the System Registry
+#
+#  systemregistry:
+#    container_name: systemregistry
+#    image: svetlint/systemregistry:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/systemregistry.properties:/systemregistry/application.properties
+#    ports:
+#      - 8437:8437
+
+# Uncomment if you wish to use the Choreographer
+#
+#  choreographer:
+#    container_name: choreographer
+#    image: svetlint/choreographer:latest
+#    depends_on:
+#      - mysql
+#    volumes:
+#      - ./core_system_config/choreographer.properties:/choreographer/application.properties
+#    ports:
+#      - 8457:8457
 
 volumes:
   mysql:

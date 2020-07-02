@@ -1,0 +1,5 @@
+FROM openjdk:11-jre-slim
+
+COPY onboarding/*.jar /onboarding/arrowhead-onboarding.jar
+
+CMD cd /onboarding && java -jar arrowhead-onboarding.jar

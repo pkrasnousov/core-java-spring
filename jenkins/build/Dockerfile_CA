@@ -1,0 +1,5 @@
+FROM openjdk:11-jre-slim
+
+COPY certificate-authority/*.jar /certificate-authority/arrowhead-certificate-authority.jar
+
+CMD cd /certificate-authority && java -jar arrowhead-certificate-authority.jar

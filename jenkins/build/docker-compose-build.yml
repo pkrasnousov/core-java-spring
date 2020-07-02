@@ -30,6 +30,36 @@ services:
     build:
       context: .
       dockerfile: Dockerfile_EH
+  certificateauthority:
+    image: "certificateauthority:$BUILD_TAG"
+    build:
+      context: .
+      dockerfile: Dockerfile_CA
+  qosmonitor:
+    image: "qosmonitor:$BUILD_TAG"
+    build:
+      context: .
+      dockerfile: Dockerfile_QOS
+  onboardingcontroller:
+    image: "onboardingcontroller:$BUILD_TAG"
+    build:
+      context: .
+      dockerfile: Dockerfile_OC
+  deviceregistry:
+    image: "deviceregistry:$BUILD_TAG"
+    build:
+      context: .
+      dockerfile: Dockerfile_DR
+  systemregistry:
+    image: "systemregistry:$BUILD_TAG"
+    build:
+      context: .
+      dockerfile: Dockerfile_SysR
+  choreographer:
+    image: "choreographer:$BUILD_TAG"
+    build:
+      context: .
+      dockerfile: Dockerfile_CH
 
 
 
