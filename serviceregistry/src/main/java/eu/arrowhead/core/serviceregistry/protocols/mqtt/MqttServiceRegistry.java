@@ -293,7 +293,7 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 	  if (!request.getMethod().toLowerCase().equals("post")) {
 	    return;
 	  }
-
+e
 	  try {
 	    ServiceQueryFormDTO serviceQueryFormDTO = mapper.convertValue(request.getPayload(), ServiceQueryFormDTO.class);
 
