@@ -23,20 +23,11 @@ set -e
 
 case "$1" in
   purge)
-    db_get arrowhead-core-common/cloudname; AH_CLOUD_NAME=$RET
     AH_CONF_DIR="/etc/arrowhead"
     AH_CLOUDS_DIR="${AH_CONF_DIR}/clouds"
     AH_SYSTEMS_DIR="${AH_CONF_DIR}/systems"
 
-    rm -f ${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12
-    rm -f ${AH_CONF_DIR}/master.p12
-    rm -f ${AH_CONF_DIR}/truststore.p12
-    rm -f ${AH_CONF_DIR}/master.crt
-    rm -f ${AH_MYSQL_CONF}
-    rmdir ${AH_CLOUDS_DIR} 2>/dev/null || true
-    rmdir ${AH_SYSTEMS_DIR} 2>/dev/null || true
-    rmdir ${AH_CONF_DIR} 2>/dev/null || true
-    rmdir /var/log/arrowhead 2>/dev/null || true
+    rm -rf ${AH_CONF_DIR}
 
     deluser arrowhead || true
     db_purge

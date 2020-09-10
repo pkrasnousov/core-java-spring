@@ -169,19 +169,19 @@ Where directory is the directory you created in step one.
 ##### Generate new master certificate (and, in turn, system certificates)
 
 ```bash
-sudo arrowhead certs -m
+sudo arrowhead cert -m
 ```
 
 ##### Generate new certificates for all systems
 
 ```bash
-sudo arrowhead certs -u
+sudo arrowhead cert -u
 ```
 
 ##### Generate new certificates for specific systems
 
 ```bash
-sudo arrowhead certs -s=SYSTEM...
+sudo arrowhead cert -s=SYSTEM...
 ```
 
 ##### Generate certificates for new systems
@@ -189,7 +189,7 @@ sudo arrowhead certs -s=SYSTEM...
 Add the new system to the systems list in `arrowhead.cfg` then run:
 
 ```bash
-sudo arrowhead certs -n -u
+sudo arrowhead cert -n -u
 ```
 
 ### Add a new application system

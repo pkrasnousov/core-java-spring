@@ -1,20 +1,10 @@
 #!/bin/bash
 
-if [[ -z "$AH_CONF_DIR" ]]; then
-  AH_CONF_DIR="/etc/arrowhead"
-fi
-if [[ -z "$AH_CLOUDS_DIR" ]]; then
-  AH_CLOUDS_DIR="${AH_CONF_DIR}/clouds"
-fi
-if [[ -z "$AH_SYSTEMS_DIR" ]]; then
-  AH_SYSTEMS_DIR="${AH_CONF_DIR}/systems"
-fi
-if [[ -z "$AH_CONF_FILE" ]]; then
-  AH_CONF_FILE="${AH_CONF_DIR}/arrowhead.cfg"
-fi
-if [[ -z "$AH_RELAYS_DIR" ]]; then
-  AH_RELAYS_DIR="${AH_CONF_DIR}/relays"
-fi
+# ########################################################### #
+# ########################################################### #
+# #################### UTILITY FUNCTIONS #################### #
+# ########################################################### #
+# ########################################################### #
 
 err() {
   echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
@@ -32,6 +22,77 @@ ah_set_conf_prop() {
     err "ah_set_conf_prop: Could not find $1"
   fi
 }
+
+# Set property in system properties file
+ah_set_app_prop() {
+  local system="$1"
+  local property="$2"
+  local value="$3"
+
+  local prop_file="${AH_CONF_DIR}/systems/${system}/application.properties"
+
+  local out="$(echo "${value}" | sed 's/[\\\/\&]/\\&/g')"
+  if ! sed -i "/^${property}=.*/{s//${property}=${out}/;h};\${x;/./{x;q0};x;q1}" "${prop_file}"; then
+    err "Missing [$2] in [${prop_file}]"
+  fi
+}
+
+ah_subject_alternative_names() {
+  out="$1"
+  ips="$(echo "${@:2}" | grep -o -P '(?<=-ips ).*?((?= -dns)|$)')"
+  dns="$(echo "${@:2}" | grep -o -P '(?<=-dns ).*?((?= -ips)|$)')"
+
+  if [[ ! "${out}" =~ (^|,)"IP:127.0.0.1"(,|$) ]]; then
+    [[ -n "${out}" ]] && out="${out},IP:127.0.0.1" || out="IP:127.0.0.1"
+  fi
+  if [[ ! "${out}" =~ (^|,)"DNS:localhost"(,|$) ]]; then
+    [[ -n "${out}" ]] && out="${out},DNS:localhost" || out="DNS:localhost"
+  fi
+
+  for ip in ${ips}
+  do
+    if [[ ! ${out} =~ (^|,)"IP:${ip}"(,|$) ]]; then
+      out="${out},IP:${ip}"
+    fi
+  done
+
+  for domain in ${dns}
+  do
+    if [[ ! ${out} =~ (^|,)"DNS:${domain}"(,|$) ]]; then
+      out="${out},DNS:${domain}"
+    fi
+  done
+
+  echo "${out}"
+}
+
+# ########################################################### #
+# ########################################################### #
+# ################## UTILITY FUNCTIONS END ################## #
+# ########################################################### #
+# ########################################################### #
+
+# ########################################################### #
+# ########################################################### #
+# ################# VARIABLE INITIALIZATION ################# #
+# ########################################################### #
+# ########################################################### #
+
+if [[ -z "$AH_CONF_DIR" ]]; then
+  AH_CONF_DIR="/etc/arrowhead"
+fi
+if [[ -z "$AH_CLOUDS_DIR" ]]; then
+  AH_CLOUDS_DIR="${AH_CONF_DIR}/clouds"
+fi
+if [[ -z "$AH_SYSTEMS_DIR" ]]; then
+  AH_SYSTEMS_DIR="${AH_CONF_DIR}/systems"
+fi
+if [[ -z "$AH_CONF_FILE" ]]; then
+  AH_CONF_FILE="${AH_CONF_DIR}/arrowhead.cfg"
+fi
+if [[ -z "$AH_RELAYS_DIR" ]]; then
+  AH_RELAYS_DIR="${AH_CONF_DIR}/relays"
+fi
 
 AH_PASS_CERT="$(ah_get_conf_prop cert_password)"
 AH_CLOUD_NAME="$(ah_get_conf_prop cloudname)"
@@ -52,478 +113,495 @@ OWN_IP="$(echo "${AH_SYSTEM_INTERFACE}" | awk ' { print $2 } ')"
 
 readarray -t SAN_INTERFACE_IPS<<<"$(echo "${AH_NETWORK_INTERFACES}" | awk ' BEGIN { RS = "," } { print $2 } ')"
 
-ah_subject_alternative_names() {
-  ips="$(echo "${@}" | grep -o -P '(?<=-ips ).*?((?= -dns)|$)')"
-  dns="$(echo "${@}" | grep -o -P '(?<=-dns ).*?((?= -ips)|$)')"
-  out="IP:127.0.0.1,DNS:localhost"
+# ########################################################### #
+# ########################################################### #
+# ############### VARIABLE INITIALIZATION END ############### #
+# ########################################################### #
+# ########################################################### #
 
-  for ip in ${ips}
-  do
-    if [[ ${out} != *"${ip}"* ]]; then
-      out="${out},IP:${ip}"
-    fi
-  done
+# ########################################################### #
+# ########################################################### #
+# #################### WRAPPER FUNCTIONS #################### #
+# ########################################################### #
+# ########################################################### #
 
-  for domain in ${dns}
-  do
-    if [[ ${out} != *"${domain}"* ]]; then
-      out="${out},DNS:${domain}"
-    fi
-  done
+ah_cert_signed_system() {
+  local system_name=$1
+  
+  local root_cn="${AH_COMPANY}.${AH_COUNTRY}"
+  local cloud_cn="${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
+  local system_cn="${system_name}.${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
+  local sans="$(ah_subject_alternative_names)"
+  sans="$(ah_subject_alternative_names "${sans}" -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" -dns "$(hostname)" "${SAN_DNS}")"
 
-  echo "${out}"
-}
-
-ah_ip_valid () {
-  my_ip=${1}
-
-  if expr "$my_ip" : '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$' >/dev/null; then
-    OLD_IFS=${IFS}
-    IFS=.
-    set $my_ip
-    for quad in 1 2 3 4; do
-      if eval [ \$$quad -gt 255 ]; then
-        IFS=OLD_IFS
-        return 1
-      fi
-    done
-    IFS=${OLD_IFS}
-    return 0
+  if [[ "${system_name}" != "sysop" ]]; then
+    create_system_keystore \
+      "${AH_CONF_DIR}/master.p12" "${root_cn}" \
+      "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12" "${cloud_cn}" \
+      "${AH_SYSTEMS_DIR}/${system_name}/${system_name}.p12" "${system_cn}" \
+      "${sans}"
   else
-    return 1
+    create_sysop_keystore \
+      "${AH_CONF_DIR}/master.p12" "${root_cn}" \
+      "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12" "${cloud_cn}" \
+      "${AH_SYSTEMS_DIR}/${system_name}/${system_name}.p12" "${system_cn}" \
+      "${sans}"
   fi
 }
 
-ah_cert () {
-  dst_path=${1}
-  dst_name=${2}
-  cn=${3}
-  passwd=${4}
+ah_ca_keystore() {
+  local system_name=$1
 
-  if [ -z ${passwd} ]; then
-    passwd=${AH_PASS_CERT}
+  local root_cn="${AH_COMPANY}.${AH_COUNTRY}"
+  local cloud_cn="${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
+  local system_cn="${system_name}.${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
+  local sans="$(ah_subject_alternative_names)"
+  sans="$(ah_subject_alternative_names "${sans}" -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" -dns "$(hostname)" "${SAN_DNS}")"
+
+  create_ca_system_keystore \
+    "${AH_CONF_DIR}/master.p12" "${root_cn}" \
+    "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12" "${cloud_cn}" \
+    "${AH_SYSTEMS_DIR}/${system_name}/${system_name}.p12" "${system_cn}" \
+    "${sans}"
+}
+
+# ########################################################### #
+# ########################################################### #
+# ################## WRAPPER FUNCTIONS END ################## #
+# ########################################################### #
+# ########################################################### #
+
+# ########################################################### #
+# ########################################################### #
+# #################### LIBRARY FUNCTIONS #################### #
+# ########################################################### #
+# ########################################################### #
+
+# Creates a root certificate keystore and a corresponding PEM certificate.
+#
+# If the keystore already exists, the operation does nothing. If the PEM
+# cerificate is missing, it will be created either from the already
+# existing or new keystore.
+#
+# @param $1 Path to desired root certificate keystore.
+# @param $2 Desired Common Name of root certificate.
+create_root_keystore() {
+  local root_keystore=$1
+  local root_key_alias=$2
+  local root_cert_file="${root_keystore%.*}.crt"
+
+  if [ ! -f "${root_keystore}" ]; then
+    echo -e "\e[34mCreating \e[33m${root_keystore}\e[34m ...\e[0m"
+    mkdir -p "$(dirname "${root_keystore}")"
+    rm -f "${root_cert_file}"
+
+    keytool -genkeypair -v \
+      -keystore "${root_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -keyalg "RSA" \
+      -keysize "2048" \
+      -validity "3650" \
+      -alias "${root_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -dname "CN=${root_key_alias}, OU=${AH_OPERATOR}, O=arrowhead, C=eu" \
+      -ext "BasicConstraints=ca:true,pathlen:3"
   fi
 
-  file="${dst_path}/${dst_name}.p12"
+  if [ ! -f "${root_cert_file}" ]; then
+    echo -e "\e[34mCreating \e[33m${root_cert_file}\e[34m ...\e[0m"
 
-  # The command has been renamed in newer versions of keytool
-  gen_cmd="-genkeypair"
-  keytool ${gen_cmd} --help >/dev/null 2>&1 || gen_cmd='-genkey'
-
-  # Get a formatted subject alternative names
-  sans="$(ah_subject_alternative_names -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" -dns `hostname` "${SAN_DNS}")"
-
-  if [ ! -f "${file}" ]; then
-    keytool ${gen_cmd} \
-      -alias ${dst_name} \
-      -keyalg RSA \
-      -keysize 2048 \
-      -dname "CN=${cn}, OU=${AH_OPERATOR}, O=${AH_COMPANY}, C=${AH_COUNTRY}" \
-      -validity 3650 \
-      -keypass ${passwd} \
-      -keystore ${file} \
-      -storepass ${passwd} \
-      -storetype PKCS12 \
-      -ext BasicConstraints=ca:true,pathlen:3 \
-      -ext SubjectAlternativeName=${sans}
-
-    chown :arrowhead ${file}
-    chmod 640 ${file}
+    keytool -exportcert -v \
+      -keystore "${root_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${root_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -file "${root_cert_file}" \
+      -rfc
   fi
 }
 
-ah_cert_export () {
-  src_path=${1}
-  dst_name=${2}
-  dst_path=${3}
+# Creates a cloud certificate keystore, containing a certificate signed by the
+# specified root, and a corresponding PEM certificate.
+#
+# If the keystore already exists, the operation does nothing. If the PEM
+# cerificate is missing, it will be created either from the already
+# existing or new keystore. If the root keystore has changed since an
+# existing cloud keystore was created, it is recreated.
+#
+# @param $1 Path to root certificate keystore.
+# @param $2 Common Name of root certificate.
+# @param $3 Path to desired cloud certificate keystore.
+# @param $4 Desired Common Name of cloud certificate.
+create_cloud_keystore() {
+  local root_keystore=$1
+  local root_key_alias=$2
+  local root_cert_file="${root_keystore%.*}.crt"
+  local cloud_keystore=$3
+  local cloud_key_alias=$4
+  local cloud_cert_file="${cloud_keystore%.*}.crt"
+  local relay=$5
 
-  src_file="${src_path}/${dst_name}.p12"
-  dst_file="${dst_path}/${dst_name}.crt"
-
-  if [ ! -f "${dst_file}" ]; then
-    keytool -exportcert \
-      -rfc \
-      -alias ${dst_name} \
-      -storepass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      | openssl x509 \
-      -out ${dst_file}
-
-    chown :arrowhead ${dst_file}
-    chmod 640 ${dst_file}
-  fi
-}
-
-ah_cert_export_pub () {
-  src_path=${1}
-  dst_name=${2}
-  dst_path=${3}
-
-  src_file="${src_path}/${dst_name}.p12"
-  dst_file="${dst_path}/${dst_name}.pub"
-
-  if [ ! -f "${dst_file}" ]; then
-    keytool -exportcert \
-      -rfc \
-      -alias ${dst_name} \
-      -storepass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      | openssl x509 \
-      -out ${dst_file} \
-      -noout \
-      -pubkey
-
-    chown :arrowhead ${dst_file}
-    chmod 640 ${dst_file}
-  fi
-}
-
-ah_cert_import () {
-  src_path=${1}
-  src_name=${2}
-  dst_path=${3}
-  dst_name=${4}
-  passwd=${5}
-
-  if [ -z ${passwd} ]; then
-    passwd=${AH_PASS_CERT}
+  if [ -n "${relay}" ]; then
+    local op="relay"
+  else
+    local op="${AH_OPERATOR}"
   fi
 
-  src_file="${src_path}/${src_name}.crt"
-  dst_file="${dst_path}/${dst_name}.p12"
+  if [ -f "${cloud_keystore}" ] && [ "${root_keystore}" -nt "${cloud_keystore}" ]; then
+    rm -f "${cloud_keystore}"
+  fi
 
-  keytool -import \
-    -trustcacerts \
-    -file ${src_file} \
-    -alias ${src_name} \
-    -keystore ${dst_file} \
-    -keypass ${passwd} \
-    -storepass ${passwd} \
-    -storetype PKCS12 \
-    -noprompt
-}
+  if [ ! -f "${cloud_keystore}" ]; then
+    echo -e "\e[34mCreating \e[33m${cloud_keystore}\e[34m ...\e[0m"
+    mkdir -p "$(dirname "${cloud_keystore}")"
+    rm -f "${cloud_cert_file}"
 
-ah_cert_signed () {
-  dst_path=${1}
-  dst_name=${2}
-  cn=${3}
-  src_path=${4}
-  src_name=${5}
+    keytool -genkeypair -v \
+      -keystore "${cloud_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -keyalg "RSA" \
+      -keysize "2048" \
+      -validity "3650" \
+      -alias "${cloud_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -dname "CN=${cloud_key_alias}, OU=${op}, O=arrowhead, C=eu" \
+      -ext "BasicConstraints=ca:true,pathlen:2"
 
-  src_file="${src_path}/${src_name}.p12"
-  dst_file="${dst_path}/${dst_name}.p12"
-
-  if [ ! -f "${dst_file}" ]; then
-    ah_cert ${dst_path} ${dst_name} ${cn}
-
-    # Get a formatted subject alternative names
-    sans="$(ah_subject_alternative_names -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" -dns `hostname` "${SAN_DNS}")"
-
-    keytool -export \
-      -alias ${src_name} \
-      -storepass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      | keytool -import \
+    keytool -importcert -v \
+      -keystore "${cloud_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${root_key_alias}" \
+      -file "${root_cert_file}" \
       -trustcacerts \
-      -alias ${src_name} \
-      -keystore ${dst_file} \
-      -keypass ${AH_PASS_CERT} \
-      -storepass ${AH_PASS_CERT} \
-      -storetype PKCS12 \
       -noprompt
 
-    keytool -certreq \
-      -alias ${dst_name} \
-      -keypass ${AH_PASS_CERT} \
-      -keystore ${dst_file} \
-      -storepass ${AH_PASS_CERT} \
-      | keytool -gencert \
-      -alias ${src_name} \
-      -keypass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      -storepass ${AH_PASS_CERT} \
-      -validity 3650 \
-      -ext BasicConstraints=ca:true,pathlen:2 \
-      -ext SubjectAlternativeName=${sans} \
-      | keytool -importcert \
-      -alias ${dst_name} \
-      -keypass ${AH_PASS_CERT} \
-      -keystore ${dst_file} \
-      -storepass ${AH_PASS_CERT} \
-      -noprompt
+    keytool -certreq -v \
+      -keystore "${cloud_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${cloud_key_alias}" \
+      -keypass "${AH_PASS_CERT}" |
+      keytool -gencert -v \
+        -keystore "${root_keystore}" \
+        -storepass "${AH_PASS_CERT}" \
+        -validity "3650" \
+        -alias "${root_key_alias}" \
+        -keypass "${AH_PASS_CERT}" \
+        -ext "BasicConstraints=ca:true,pathlen:2" \
+        -rfc |
+      keytool -importcert \
+        -keystore "${cloud_keystore}" \
+        -storepass "${AH_PASS_CERT}" \
+        -alias "${cloud_key_alias}" \
+        -keypass "${AH_PASS_CERT}" \
+        -trustcacerts \
+        -noprompt
+  fi
+
+  if [ ! -f "${cloud_cert_file}" ]; then
+    echo -e "\e[34mCreating \e[33m${cloud_cert_file}\e[34m ...\e[0m"
+
+    keytool -exportcert -v \
+      -keystore "${cloud_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${cloud_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -file "${cloud_cert_file}" \
+      -rfc
   fi
 }
 
-ah_cert_signed_system () {
-  name=${1}
-  passwd=${2}
-  host=${3}
-  ip=${4}
-  path_dir=${5}
+# Creates a system certificate keystore, containing a certificate signed by
+# the specified cloud, and a corresponding PEM certificate.
+#
+# If the keystore already exists, the operation does nothing. If the
+# PEM cerificate is missing, it will be created either
+# from the already existing or the new keystore. If the cloud keystore has changed
+# since an existing system keystore was created, it is recreated.
+#
+# @param $1 Path to root certificate keystore.
+# @param $2 Common Name of root certificate.
+# @param $3 Path to cloud certificate keystore.
+# @param $4 Common Name of cloud certificate.
+# @param $5 Path to desired system certificate keystore.
+# @param $6 Desired Common Name of system certificate.
+create_system_keystore() {
+  local root_keystore=$1
+  local root_key_alias=$2
+  local root_cert_file="${root_keystore%.*}.crt"
+  local cloud_keystore=$3
+  local cloud_key_alias=$4
+  local cloud_cert_file="${cloud_keystore%.*}.crt"
+  local system_keystore=$5
+  local system_key_alias=$6
+  local san=$7
 
-  if [ -z ${passwd} ] ; then
-    passwd=${AH_PASS_CERT}
+  if [ -f "${system_keystore}" ] && [ "${cloud_keystore}" -nt "${system_keystore}" ]; then
+    rm -f "${system_keystore}"
   fi
 
-  if [ -z ${host} ]; then
-    host=`hostname`
-  fi
+  if [ ! -f "${system_keystore}" ]; then
+    echo -e "\e[34mCreating \e[33m${system_keystore}\e[34m ...\e[0m"
+    mkdir -p "$(dirname "${system_keystore}")"
 
-  if [ -z ${ip} ]; then
-    ip=${OWN_IP}
-  fi
+    keytool -genkeypair -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -keyalg "RSA" \
+      -keysize "2048" \
+      -validity "3650" \
+      -alias "${system_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -dname "CN=${system_key_alias}, OU=${AH_OPERATOR}, O=arrowhead, C=eu" \
+      -ext "SubjectAlternativeName=${san}"
 
-  if [ -z ${path_dir} ]; then
-    path_dir=${AH_SYSTEMS_DIR}
-  fi
-
-  path="${path_dir}/${name}"
-  file="${path}/${name}.p12"
-  src_file="${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12"
-
-  if [ ! -f "${file}" ]; then
-    ah_cert ${path} ${name} "${name}.${AH_CLOUD_NAME}.${AH_OPERATOR}.arrowhead.eu" ${passwd}
-
-    # Get a formatted subject alternative names
-    sans="$(ah_subject_alternative_names -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" ${ip} -dns ${host} "${SAN_DNS}")"
-
-    keytool -export \
-      -alias ${AH_CLOUD_NAME} \
-      -storepass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      | keytool -import \
+    keytool -importcert -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${root_key_alias}" \
+      -file "${root_cert_file}" \
       -trustcacerts \
-      -alias ${AH_CLOUD_NAME} \
-      -keystore ${file} \
-      -keypass ${passwd} \
-      -storepass ${passwd} \
-      -storetype PKCS12 \
       -noprompt
 
-    keytool -certreq \
-      -alias ${name} \
-      -keypass ${passwd} \
-      -keystore ${file} \
-      -storepass ${passwd} \
-      | keytool -gencert \
-      -alias ${AH_CLOUD_NAME} \
-      -keypass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      -storepass ${AH_PASS_CERT} \
-      -validity 3650 \
-      -ext SubjectAlternativeName=${sans} \
-      | keytool -importcert \
-      -alias ${name} \
-      -keypass ${passwd} \
-      -keystore ${file} \
-      -storepass ${passwd} \
-      -noprompt
-
-    ah_cert_import "${AH_CONF_DIR}" "master" "${path}" ${name} ${passwd}
-  fi
-}
-
-ah_cert_signed_relay () {
-  name=${1}
-  passwd=${2}
-  host=${3}
-  ip=${4}
-  path_dir=${5}
-
-  if [ -z ${passwd} ] ; then
-    passwd=${AH_PASS_CERT}
-  fi
-
-  if [ -z ${host} ]; then
-    host=`hostname`
-  fi
-
-  if [ -z ${ip} ]; then
-    ip=${OWN_IP}
-  fi
-
-  if [ -z ${path_dir} ]; then
-    path_dir=${AH_RELAYS_DIR}
-  fi
-
-  path="${path_dir}/${name}"
-  file="${path}/${name}.p12"
-  src_file="${AH_RELAYS_DIR}/relay.p12"
-
-  if [ ! -f "${file}" ]; then
-    ah_cert ${path} ${name} "${name}.relay.arrowhead.eu" ${passwd}
-
-    # Get a formatted subject alternative names
-    sans="$(ah_subject_alternative_names -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" ${ip} -dns ${host} "${SAN_DNS}")"
-
-    keytool -export \
-      -alias relay \
-      -storepass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      | keytool -import \
+    keytool -importcert -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${cloud_key_alias}" \
+      -file "${cloud_cert_file}" \
       -trustcacerts \
-      -alias relay \
-      -keystore ${file} \
-      -keypass ${passwd} \
-      -storepass ${passwd} \
-      -storetype PKCS12 \
       -noprompt
 
-    keytool -certreq \
-      -alias ${name} \
-      -keypass ${passwd} \
-      -keystore ${file} \
-      -storepass ${passwd} \
-      | keytool -gencert \
-      -alias relay \
-      -keypass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      -storepass ${AH_PASS_CERT} \
-      -validity 3650 \
-      -ext SubjectAlternativeName=${sans} \
-      | keytool -importcert \
-      -alias ${name} \
-      -keypass ${passwd} \
-      -keystore ${file} \
-      -storepass ${passwd} \
-      -noprompt
-
-    ah_cert_import "${AH_CONF_DIR}" "master" "${path}" ${name} ${passwd}
+    keytool -certreq -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${system_key_alias}" \
+      -keypass "${AH_PASS_CERT}" |
+      keytool -gencert -v \
+        -keystore "${cloud_keystore}" \
+        -storepass "${AH_PASS_CERT}" \
+        -validity "3650" \
+        -alias "${cloud_key_alias}" \
+        -keypass "${AH_PASS_CERT}" \
+        -ext "SubjectAlternativeName=${san}" \
+        -rfc |
+      keytool -importcert \
+        -keystore "${system_keystore}" \
+        -storepass "${AH_PASS_CERT}" \
+        -alias "${system_key_alias}" \
+        -keypass "${AH_PASS_CERT}" \
+        -trustcacerts \
+        -noprompt
   fi
 }
 
 # Create the keystore for the CA system
 # Apart from being a regular Arrowhead compliant system keystore,
 # it also has to contain the private key of the cloud
-ah_ca_keystore () {
-  ca_sys_name=${1}        # name of the CA system
-  host=${2}               # hostname of the CA system (default: `hostname`)
-  ip=${3}                 # IP address of the CA system (default: $OWN_IP)
-  cloud_keystore=${4}     # path of the cloud keystore (default: "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12")
-  ca_password=${5}        # password used in the CA keystore (default: $AH_PASS_CERT)
-  cloud_password=${6}     # password used in the cloud keystore (default: $AH_PASS_CERT)
-  cloud_alias_src=${7}    # cloud cert alias in the cloud keystore (default: $AH_CLOUD_NAME)
-  cloud_alias_dst=${8}    # cloud cert alias in the CA keystore (default: $AH_CLOUD_NAME)
+#
+# If the keystore already exists, the operation does nothing. If the
+# PEM cerificate is missing, it will be created either
+# from the already existing or the new keystore. If the cloud keystore has changed
+# since an existing system keystore was created, it is recreated.
+#
+# @param $1 Path to root certificate keystore.
+# @param $2 Common Name of root certificate.
+# @param $3 Path to cloud certificate keystore.
+# @param $4 Common Name of cloud certificate.
+# @param $5 Path to desired system certificate keystore.
+# @param $6 Desired Common Name of system certificate.
+# @param $7 Subject alternative names for system certificate.
+create_ca_system_keystore() {
+  local root_keystore=$1
+  local root_key_alias=$2
+  local root_cert_file="${root_keystore%.*}.crt"
+  local cloud_keystore=$3
+  local cloud_key_alias=$4
+  local cloud_cert_file="${cloud_keystore%.*}.crt"
+  local system_keystore=$5
+  local system_key_alias=$6
+  local san=$7
 
-  if [ -z ${host} ]; then
-    host=`hostname`
-  fi
+  if [ ! -f "${system_keystore}" ]; then
+    echo -e "\e[34mCreating \e[33m${system_keystore}\e[34m ...\e[0m"
+    mkdir -p "$(dirname "${system_keystore}")"
+    rm -f "${system_pub_file}"
 
-  if [ -z ${ip} ]; then
-    ip=${OWN_IP}
-  fi
+    keytool -genkeypair -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -keyalg "RSA" \
+      -keysize "2048" \
+      -validity "3650" \
+      -alias "${system_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -dname "CN=${system_key_alias}, OU=${AH_OPERATOR}, O=arrowhead, C=eu" \
+      -ext "SubjectAlternativeName=${san}"
 
-  if [ -z ${cloud_keystore} ]; then
-    cloud_keystore="${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12"
-  fi
-
-  if [ -z ${ca_password} ]; then
-    ca_password=${AH_PASS_CERT}
-  fi
-
-  if [ -z ${cloud_password} ]; then
-    cloud_password=${ca_password}
-  fi
-
-  if [ -z ${cloud_alias_src} ]; then
-    cloud_alias_src=${AH_CLOUD_NAME}
-  fi
-
-  if [ -z ${cloud_alias_dst} ]; then
-    cloud_alias_dst=${cloud_alias_src}
-  fi
-
-  ca_sys_dir="${AH_SYSTEMS_DIR}/${ca_sys_name}"
-  ca_keystore="${ca_sys_dir}/${ca_sys_name}.p12"
-
-  if [ ! -f "${ca_keystore}" ]; then
-    # generate CA system keypair
-    ah_cert ${ca_sys_dir} ${ca_sys_name} "${ca_sys_name}.${AH_CLOUD_NAME}.${AH_OPERATOR}.arrowhead.eu" ${ca_password}
-
-    # Get a formatted subject alternative names
-    sans="$(ah_subject_alternative_names -ips "${SAN_INTERFACE_IPS[@]}" "${SAN_IPS}" ${ip} -dns ${host} "${SAN_DNS}")"
+    keytool -importcert -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${root_key_alias}" \
+      -file "${root_cert_file}" \
+      -trustcacerts \
+      -noprompt
 
     # import cloud keypair
     # this is necessary, because CA signs system certificates with the cloud cert
-    keytool -importkeystore \
-      -srckeypass ${cloud_password} \
-      -srcstorepass ${cloud_password} \
-      -destkeypass ${ca_password} \
-      -deststorepass  ${ca_password} \
-      -srcalias ${cloud_alias_src} \
-      -destalias ${cloud_alias_dst} \
+    keytool -importkeystore -v \
+      -srckeypass "${AH_PASS_CERT}" \
+      -srcstorepass "${AH_PASS_CERT}" \
+      -destkeypass "${AH_PASS_CERT}" \
+      -deststorepass  "${AH_PASS_CERT}" \
+      -srcalias "${cloud_key_alias}" \
+      -destalias "${cloud_key_alias}" \
       -srckeystore "${cloud_keystore}" \
-      -destkeystore "${ca_keystore}" \
+      -destkeystore "${system_keystore}" \
       -deststoretype PKCS12
 
     # sign CA system cert with the cloud cert
-    keytool -certreq \
-      -alias ${ca_sys_name} \
-      -keypass ${ca_password} \
-      -keystore "${ca_keystore}" \
-      -storepass ${ca_password} \
-      | keytool -gencert \
-      -alias ${cloud_alias_dst} \
-      -keypass ${ca_password} \
-      -keystore "${ca_keystore}" \
-      -storepass ${ca_password} \
-      -validity 3650 \
-      -ext SubjectAlternativeName=${sans} \
-      | keytool -importcert \
-      -alias ${ca_sys_name} \
-      -keypass ${ca_password} \
-      -keystore "${ca_keystore}" \
-      -storepass ${ca_password} \
+    keytool -certreq -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${system_key_alias}" \
+      -keypass "${AH_PASS_CERT}" |
+      keytool -gencert -v \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -validity "3650" \
+      -alias "${cloud_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -ext "SubjectAlternativeName=${san}" \
+      -rfc |
+      keytool -importcert \
+      -keystore "${system_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${system_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
       -noprompt
-
-    # import root certificate
-    ah_cert_import "${AH_CONF_DIR}" "master" "${ca_sys_dir}" ${ca_sys_name} ${ca_password}
   fi
 }
 
-ah_cert_trust () {
-  dst_path=${1}
-  src_path=${2}
-  src_name=${3}
-  passwd=${4}
+# Creates a system operator certificate keystore, containing a certificate
+# signed by the specified cloud, a PEM certificate file, a CA (Certificate
+# Authority) file, a public key file and a private key file.
+#
+# If the keystore already exists, the operation does nothing. If the PEM
+# cerificate is missing, it will be created either from the already
+# existing or new keystore. If the cloud keystore has changed since an
+# existing system operator keystore was created, it is recreated.
+#
+# @param $1 Path to root certificate keystore.
+# @param $2 Common Name of root certificate.
+# @param $3 Path to cloud certificate keystore.
+# @param $4 Common Name of cloud certificate.
+# @param $5 Path to desired system operator certificate keystore.
+# @param $6 Desired Common Name of system operator certificate.
+create_sysop_keystore() {
+  local root_keystore=$1
+  local root_cert_file="${root_keystore%.*}.crt"
+  local cloud_keystore=$3
+  local cloud_cert_file="${cloud_keystore%.*}.crt"
+  local sysop_keystore=$5
+  local sysop_key_alias=$6
+  local sysop_pub_file="${sysop_keystore%.*}.pub"
+  local sysop_ca_file="${sysop_keystore%.*}.ca"
+  local sysop_cert_file="${sysop_keystore%.*}.crt"
+  local sysop_key_file="${sysop_keystore%.*}.key"
 
-  if [ -z ${passwd} ]; then
-    passwd=${AH_PASS_CERT}
+  local create_keystore_or_pub_file=0
+
+  if [ -f "${sysop_keystore}" ] && [ "${cloud_keystore}" -nt "${sysop_keystore}" ]; then
+    rm -f "${sysop_keystore}"
   fi
 
-  src_file="${src_path}/${src_name}.p12"
-  dst_file="${dst_path}/truststore.p12"
+  if [ ! -f "${sysop_keystore}" ]; then
+    rm -f "${sysop_ca_file}"
+    rm -f "${sysop_cert_file}"
+    rm -f "${sysop_key_file}"
+    create_keystore_or_pub_file=1
+  fi
 
-  if [ ! -f "${dst_file}" ]; then
-    keytool -export \
-      -alias ${src_name} \
-      -storepass ${AH_PASS_CERT} \
-      -keystore ${src_file} \
-      | keytool -import \
-      -trustcacerts \
-      -alias ${src_name} \
-      -keystore ${dst_file} \
-      -keypass ${passwd} \
-      -storepass ${passwd} \
-      -storetype PKCS12 \
-      -noprompt
+  if [ ! -f "${sysop_pub_file}" ]; then
+    create_keystore_or_pub_file=1
+  fi
 
-    if [ ! -z ${AH_RELAY_MASTER_CERT} ]; then
-      keytool -import \
+  if [[ "${create_keystore_or_pub_file}" == "1" ]]; then
+    create_system_keystore "$1" "$2" "$3" "$4" "$5" "$6" "dns:localost,ip:127.0.0.1"
+  fi
+
+  if [ ! -f "${sysop_ca_file}" ]; then
+    echo -e "\e[34mCreating \e[33m${sysop_ca_file}\e[34m ...\e[0m"
+
+    cat "${root_cert_file}" >"${sysop_ca_file}"
+    cat "${cloud_cert_file}" >>"${sysop_ca_file}"
+  fi
+
+  if [ ! -f "${sysop_cert_file}" ]; then
+    echo -e "\e[34mCreating \e[33m${sysop_cert_file}\e[34m ...\e[0m"
+
+    keytool -exportcert -v \
+      -keystore "${sysop_keystore}" \
+      -storepass "${AH_PASS_CERT}" \
+      -alias "${sysop_key_alias}" \
+      -keypass "${AH_PASS_CERT}" \
+      -rfc >>"${sysop_cert_file}"
+  fi
+
+  if [ ! -f "${sysop_key_file}" ]; then
+    echo -e "\e[34mCreating \e[33m${sysop_key_file}\e[34m ...\e[0m"
+
+    openssl pkcs12 \
+      -in "${sysop_keystore}" \
+      -passin "pass:${AH_PASS_CERT}" \
+      -out "${sysop_key_file}" \
+      -nocerts \
+      -nodes
+  fi
+}
+
+# Creates truststore and populates it with identified certificates.
+#
+# If the truststore already exists, the operation does nothing. Unless,
+# however, any of the identified certificate files are newer than the
+# the truststore, in which case the truststore is recreated.
+#
+# $1        Path to desired truststore.
+# $2,4,6... Paths to certificate file ".crt".
+# $3,5,7... Common Names of certificates in ".crt" files.
+create_truststore() {
+  local truststore=$1
+  local argc=$#
+  local argv=("$@")
+
+  if [ -f "${truststore}" ]; then
+    for ((j = 1; j < argc; j = j + 2)); do
+      local FILE="${argv[j]}"
+      if [ -f "${FILE}" ] && [ "${truststore}" -nt "${FILE}" ]; then
+        rm -f "${FILE}"
+      fi
+    done
+  fi
+
+  if [ ! -f "${truststore}" ]; then
+    echo -e "\e[34mCreating \e[33m${truststore}\e[34m ...\e[0m"
+    mkdir -p "$(dirname "${truststore}")"
+
+    for ((j = 1; j < argc; j = j + 2)); do
+      keytool -importcert -v \
+        -keystore "${truststore}" \
+        -storepass "${AH_PASS_CERT}" \
+        -file "${argv[j]}" \
+        -alias "${argv[j + 1]}" \
         -trustcacerts \
-        -file ${AH_RELAY_MASTER_CERT} \
-        -alias relay.arrowhead.eu \
-        -keystore ${dst_file} \
-        -keypass ${passwd} \
-        -storepass ${passwd} \
-        -storetype PKCS12 \
         -noprompt
-    fi
-
-    chown :arrowhead ${dst_file}
-    chmod 640 ${dst_file}
+    done
   fi
 }
+
+# ########################################################### #
+# ########################################################### #
+# ################## LIBRARY FUNCTIONS END ################## #
+# ########################################################### #
+# ########################################################### #
 
 # Only use this in maintainer scripts.
 # Do not call this in the `arrowhead` command

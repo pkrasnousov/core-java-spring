@@ -187,6 +187,7 @@ cert() {
   if [[ "${UPDATE_MASTER_CERTS_FLAG}" == 1 ]]; then
     update_master_cert
     update_cloud_certs
+    update_cloud_truststore
     update_system_certs
 
     update_relay_master_cert
@@ -238,12 +239,12 @@ update_master_cert() {
   rm "${AH_CONF_DIR}/master.p12" 2>/dev/null || true
   rm "${AH_CONF_DIR}/truststore.p12" 2>/dev/null || true
 
-  ah_cert "${AH_CONF_DIR}" master "arrowhead.eu"
-  ah_cert_export "${AH_CONF_DIR}" master "${AH_CONF_DIR}"
+  create_root_keystore \
+    "${AH_CONF_DIR}/master.p12" "arrowhead.eu"
   echo "Updated [master] certificate"
 }
 
-# Creates bew cloud certificates
+# Creates new cloud certificates
 update_cloud_certs() {
   . "${AH_LIBRARY}"
 
@@ -251,10 +252,21 @@ update_cloud_certs() {
 
   rm "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12" 2>/dev/null || true
 
-  ah_cert_signed "${AH_CLOUDS_DIR}" "${AH_CLOUD_NAME}"\
-    "${AH_CLOUD_NAME}.${AH_OPERATOR}.arrowhead.eu" "${AH_CONF_DIR}" master
-  ah_cert_trust "${AH_CONF_DIR}" "${AH_CLOUDS_DIR}" "${AH_CLOUD_NAME}"
+  create_cloud_keystore \
+    "${AH_CONF_DIR}/master.p12" "${AH_COMPANY}.${AH_COUNTRY}" \
+    "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12" "${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
   echo "Updated ${AH_CLOUD_NAME} [cloud] certificate"
+}
+
+update_cloud_truststore() {
+  . "${AH_LIBRARY}"
+
+  rm "${AH_CLOUDS_DIR}/truststore.p12" 2>/dev/null || true
+
+  create_truststore \
+    "${AH_CONF_DIR}/truststore.p12" \
+    "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.crt" "${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
+  echo "Updated ${AH_CLOUD_NAME} [truststore]"
 }
 
 # Creates new certificates for all defined systems
@@ -309,9 +321,9 @@ update_relay_master_cert() {
 
   rm "${AH_RELAYS_DIR}/relay.p12" 2>/dev/null || true
 
-  ah_cert_signed "${AH_RELAYS_DIR}" "relay"\
-    "relay.arrowhead.eu" "${AH_CONF_DIR}" master
-  ah_cert_trust "${AH_RELAYS_DIR}" "${AH_RELAYS_DIR}" "relay"
+  create_cloud_keystore \
+    "${AH_CONF_DIR}/master.p12" "${AH_COMPANY}.${AH_COUNTRY}" \
+    "${AH_RELAYS_DIR}/amq_relay.p12" "amq_relay.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
   echo "Updated [relay master] certificate"
 }
 
@@ -339,7 +351,10 @@ update_relay_cert() {
 
   rm "${relay_dir}/${relay}.p12" 2>/dev/null || true
 
-  ah_cert_signed_relay "${relay}"
+  create_system_keystore \
+    "${AH_CONF_DIR}/master.p12" "${AH_COMPANY}.${AH_COUNTRY}" \
+    "${AH_RELAYS_DIR}/amq_relay.p12" "amq_relay.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
+    "${AH_RELAYS_DIR}/${relay}/${relay}.p12" "${relay}.amq_relay.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
 
   echo "Updated ${relay} [relay] certificate"
   return 0

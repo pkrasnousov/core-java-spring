@@ -141,10 +141,11 @@ case "$1" in
 
       "Detached" )
         # Generate master and cloud certificates
-        ah_cert ${AH_CONF_DIR} master "arrowhead.eu"
-        ah_cert_export "${AH_CONF_DIR}" master "${AH_CONF_DIR}"
-        ah_cert_signed ${AH_CLOUDS_DIR} ${AH_CLOUD_NAME} \
-          "${AH_CLOUD_NAME}.${AH_OPERATOR}.arrowhead.eu" ${AH_CONF_DIR} master
+        create_root_keystore \
+          "${AH_CONF_DIR}/master.p12" "arrowhead.eu"
+        create_cloud_keystore \
+          "${AH_CONF_DIR}/master.p12" "${AH_COMPANY}.${AH_COUNTRY}" \
+          "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.p12" "${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
         ;;
 
       * )
@@ -154,7 +155,9 @@ case "$1" in
     esac
 
     # Trust the cloud certificate
-    ah_cert_trust ${AH_CONF_DIR} ${AH_CLOUDS_DIR} ${AH_CLOUD_NAME}
+    create_truststore \
+      "${AH_CONF_DIR}/truststore.p12" \
+      "${AH_CLOUDS_DIR}/${AH_CLOUD_NAME}.crt" "${AH_CLOUD_NAME}.${AH_OPERATOR}.${AH_COMPANY}.${AH_COUNTRY}"
     ;;
 
   abort-upgrade|abort-remove|abort-deconfigure)
