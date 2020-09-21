@@ -29,6 +29,9 @@ case "$1" in
     . /usr/share/arrowhead/conf/ahconf.sh
 
     # Store system properties in the config file
+    dh_get arrowhead-core-common/db_host
+    ah_set_conf_prop db_host "$RET"
+
     db_get arrowhead-core-common/system_interface
     ah_set_conf_prop system_interface "$RET"
 
