@@ -138,19 +138,19 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
       String topics[] = { ECHO_TOPIC, REGISTER_TOPIC, UNREGISTER_TOPIC, QUERY_TOPIC };
       client.subscribe(topics);
     } catch (MqttException mex) {
-      logger.info("Could no connect to MQTT broker!\n\t" + mex.toString());
+      logger.info("Could not connect to MQTT broker!\n\t" + mex.toString());
     }
 
   }
 
   @Override
   public void run() {
-    
+
     while (true) {
       try {
         if (client == null) {
           persistence = new MemoryPersistence();
-          client = new MqttClient(mqttBrokerAddress, mqttSystemName, persistence);
+          client = new MqttClient("tcp://" + mqttBrokerAddress + ":" + mqttBrokerPort, mqttSystemName, persistence);
         }
         if (!client.isConnected()) {
           connectBroker();
