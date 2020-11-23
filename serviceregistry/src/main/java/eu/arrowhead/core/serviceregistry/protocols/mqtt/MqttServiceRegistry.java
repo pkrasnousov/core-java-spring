@@ -65,6 +65,21 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
   @Value(CoreCommonConstants.$MQTT_BROKER_PORT)
   private int mqttBrokerPort;
 
+  @Value(CoreCommonConstants.$MQTT_BROKER_USERNAME)
+  private String mqttBrokerUsername;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_PASSWORD)
+  private String mqttBrokerPassword;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_CAFILE)
+  private String mqttBrokerCAFile;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_CERTFILE)
+  private String mqttBrokerCertFile;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_KEYFILE)
+  private String mqttBrokerKeyFile;
+
   @Value(CommonConstants.$SERVER_SSL_ENABLED_WD)
   private boolean serverSslEnabled;
 
@@ -131,7 +146,16 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
     try {
       MqttConnectOptions connOpts = new MqttConnectOptions();
       connOpts.setCleanSession(true);
+      connOpts.setUserName(mqttBrokerUsername);
+			connOpts.setPassword(mqttBrokerPassword.toCharArray());
 
+      connOpts.setConnectionTimeout(60);
+			connOpts.setKeepAliveInterval(60);
+      connOpts.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1);
+
+      //SSLSocketFactory socketFactory = getSocketFactory(caFilePath, clientCrtFilePath, clientKeyFilePath, "");
+			//options.setSocketFactory(socketFactory);
+      
       client.setCallback(this);
       client.connect(connOpts);
 
