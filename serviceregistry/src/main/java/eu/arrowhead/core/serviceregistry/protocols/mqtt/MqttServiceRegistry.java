@@ -132,10 +132,20 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
   // -------------------------------------------------------------------------------------------------
   @PostConstruct
   public void init() {
-    logger.info("MQTT protocol");
+    
     if (mqttBrokerEnabled) {
-      logger.info("Starting MQTT");
+      logger.info("Starting MQTT protocol");
 
+      if(Utilities.isEmpty(mqttBrokerUsername) || Utilities.isEmpty(mqttBrokerPassword)) {
+        logger.info("Missing MQTT broker username or password!");
+        System.exit(-1);
+      }
+
+      if(Utilities.isEmpty(mqttBrokerCAFile) || Utilities.isEmpty(mqttBrokerCertFile) || Utilities.isEmpty(mqttBrokerKeyFile)) {
+        logger.info("Missing MQTT broker certificate/key files!");
+        System.exit(-1);
+      }
+      
       t = new Thread(this);
       t.start();
     }
