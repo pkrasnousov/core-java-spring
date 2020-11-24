@@ -59,6 +59,7 @@
 										<include>eu/arrowhead/common/CommonConstants.*</include>
 										<include>eu/arrowhead/common/Defaults.*</include>
 										<include>eu/arrowhead/common/SSLProperties.*</include>
+										<include>eu/arrowhead/common/SslUtil.*</include>
 										<include>eu/arrowhead/common/core/*.*</include>
 										<include>eu/arrowhead/common/dto/shared/*.*</include>
 										<include>eu/arrowhead/common/exception/*.*</include>
@@ -148,6 +149,11 @@
             <artifactId>scandium</artifactId>
             <version>2.2.1</version>
             <type>jar</type>
-        </dependency>
+    </dependency>
+	<dependency>
+	    <groupId>org.bouncycastle</groupId>
+	    <artifactId>bcpkix-jdk15on</artifactId>
+	    <version>1.67</version>
+    </dependency>
     </dependencies>
 </project>

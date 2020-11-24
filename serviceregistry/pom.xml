@@ -16,7 +16,12 @@
 	      	<groupId>eu.arrowhead</groupId>
 	      	<artifactId>arrowhead-core-common</artifactId>
 	      	<version>${revision}</version>
-	    </dependency>
+	</dependency>
+	<dependency>
+    		<groupId>org.bouncycastle</groupId>
+    		<artifactId>bcprov-jdk15on</artifactId>
+    		<version>1.67</version>
+	</dependency>
   	   <dependency>
   	      <groupId>org.eclipse.californium</groupId>
   	      <artifactId>californium-core</artifactId>

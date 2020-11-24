@@ -9,6 +9,7 @@ import eu.arrowhead.common.CoreDefaults;
 import eu.arrowhead.common.CoreCommonConstants;
 import eu.arrowhead.common.CoreUtilities;
 import eu.arrowhead.common.Utilities;
+import eu.arrowhead.common.SslUtil;
 import eu.arrowhead.common.exception.ArrowheadException;
 import eu.arrowhead.common.core.CoreSystemService;
 import eu.arrowhead.common.dto.internal.ServiceDefinitionRequestDTO;
@@ -39,6 +40,8 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
 
 @Component
 public class MqttServiceRegistry implements MqttCallback, Runnable {
@@ -153,8 +156,13 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
 			connOpts.setKeepAliveInterval(60);
       connOpts.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1);
 
-      //SSLSocketFactory socketFactory = getSocketFactory(caFilePath, clientCrtFilePath, clientKeyFilePath, "");
-			//options.setSocketFactory(socketFactory);
+      SSLSocketFactory socketFactory = null;
+      try {
+        socketFactory = SslUtil.getSslSocketFactory(mqttBrokerCAFile, mqttBrokerCertFile, mqttBrokerKeyFile, "");
+      } catch (Exception e) {
+        logger.info("Could not open certificates: " + e.toString());
+      }
+			connOpts.setSocketFactory(socketFactory);
       
       client.setCallback(this);
       client.connect(connOpts);
@@ -174,7 +182,7 @@ public class MqttServiceRegistry implements MqttCallback, Runnable {
       try {
         if (client == null) {
           persistence = new MemoryPersistence();
-          client = new MqttClient("tcp://" + mqttBrokerAddress + ":" + mqttBrokerPort, mqttSystemName, persistence);
+          client = new MqttClient("ssl://" + mqttBrokerAddress + ":" + mqttBrokerPort, mqttSystemName, persistence);
         }
         if (!client.isConnected()) {
           connectBroker();
