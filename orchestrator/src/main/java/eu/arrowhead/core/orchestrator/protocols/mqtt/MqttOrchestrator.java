@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import eu.arrowhead.common.CommonConstants;
 import eu.arrowhead.common.CoreCommonConstants;
 import eu.arrowhead.common.Utilities;
+import eu.arrowhead.common.SslUtil;
 import eu.arrowhead.common.dto.shared.CloudRequestDTO;
 import eu.arrowhead.common.dto.shared.OrchestrationFlags.Flag;
 import eu.arrowhead.common.dto.shared.OrchestrationFormRequestDTO;
@@ -33,6 +34,8 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
 
 @Component
 public class MqttOrchestrator implements MqttCallback, Runnable {
@@ -58,6 +61,21 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
 
   @Value(CoreCommonConstants.$MQTT_BROKER_PORT)
   private int mqttBrokerPort;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_USERNAME)
+  private String mqttBrokerUsername;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_PASSWORD)
+  private String mqttBrokerPassword;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_CAFILE)
+  private String mqttBrokerCAFile;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_CERTFILE)
+  private String mqttBrokerCertFile;
+
+  @Value(CoreCommonConstants.$MQTT_BROKER_KEYFILE)
+  private String mqttBrokerKeyFile;
 
   @Value(CommonConstants.$SERVER_SSL_ENABLED_WD)
   private boolean serverSslEnabled;
@@ -94,10 +112,20 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
   // -------------------------------------------------------------------------------------------------
   @PostConstruct
   public void init() {
-    logger.info("MQTT protocol");
+    
     if (mqttBrokerEnabled) {
-      logger.info("Starting MQTT");
+      logger.info("Starting MQTT protocol");
 
+      if(Utilities.isEmpty(mqttBrokerUsername) || Utilities.isEmpty(mqttBrokerPassword)) {
+        logger.info("Missing MQTT broker username or password!");
+        System.exit(-1);
+      }
+
+      if(Utilities.isEmpty(mqttBrokerCAFile) || Utilities.isEmpty(mqttBrokerCertFile) || Utilities.isEmpty(mqttBrokerKeyFile)) {
+        logger.info("Missing MQTT broker certificate/key files!");
+        System.exit(-1);
+      }
+      
       t = new Thread(this);
       t.start();
     }
@@ -112,6 +140,20 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
     try {
       MqttConnectOptions connOpts = new MqttConnectOptions();
       connOpts.setCleanSession(true);
+      connOpts.setUserName(mqttBrokerUsername);
+			connOpts.setPassword(mqttBrokerPassword.toCharArray());
+
+      connOpts.setConnectionTimeout(60);
+			connOpts.setKeepAliveInterval(60);
+      connOpts.setMqttVersion(MqttConnectOptions.MQTT_VERSION_3_1);
+
+      SSLSocketFactory socketFactory = null;
+      try {
+        socketFactory = SslUtil.getSslSocketFactory(mqttBrokerCAFile, mqttBrokerCertFile, mqttBrokerKeyFile, "");
+      } catch (Exception e) {
+        logger.info("Could not open certificates: " + e.toString());
+      }
+			connOpts.setSocketFactory(socketFactory);
 
       client.setCallback(this);
       client.connect(connOpts);
@@ -210,7 +252,7 @@ public class MqttOrchestrator implements MqttCallback, Runnable {
       try {
         if (client == null) {
           persistence = new MemoryPersistence();
-          client = new MqttClient("tcp://" + mqttBrokerAddress + ":" + mqttBrokerPort, mqttSystemName, persistence);
+          client = new MqttClient("ssl://" + mqttBrokerAddress + ":" + mqttBrokerPort, mqttSystemName, persistence);
         }
         if (!client.isConnected()) {
           connectBroker();
