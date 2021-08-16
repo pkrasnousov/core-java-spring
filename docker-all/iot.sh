@@ -1,5 +1,8 @@
 #!/bin/bash
 #git clone https://github.com/pkrasnousov/core-java-spring.gitsudo apt update
+#git checkout development
+#cd ./docker-all/
+#chmod u+x ./iot.sh
 sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
@@ -11,4 +14,4 @@ sudo chmod u+x initSQL.sh
 ./initSQL.sh
 sudo docker volume create arrowhead_core_mysql
 cd /example
-sudo docker-compose build --build-arg MYSQL_ROOT_PASSWORD=Wasd12321!
+sudo MYSQL_ROOT_PASSWORD='Wasd12321!' docker-compose build up

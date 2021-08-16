@@ -4,7 +4,7 @@ services:
   arrowhead_core_mysql:
     container_name: arrowhead_core_mysql
     image: mysql:5.7
-    environment:
+    environment:    
       - MYSQL_ROOT_PASSWORD=THIS_WILL_BE_YOUR_CONTAINERS_ROOT_PW
     volumes:
       - arrowhead_core_mysql:/var/lib/mysql
