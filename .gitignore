@@ -22,8 +22,6 @@
 ### VS Code ###
 .vscode/
 wrapper
-/target
-/**/target
 /mvnw
 /mvnw.cmd
 /.settings
